@@ -183,9 +183,19 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);font
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
 .cday{aspect-ratio:1;border-radius:var(--r3);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:13px;font-weight:600;cursor:pointer;color:var(--txt3);border:2px solid transparent;transition:all .1s}
 .cday.q{background:#E6F4EE;color:var(--green);border-color:#B8DFD0}
-.cday.today{background:var(--green)!important;color:#fff!important;border-color:var(--green)!important}
-.cday.sel{border-color:var(--gold2)!important;box-shadow:0 0 0 2px rgba(240,165,0,.2)}
+.cday.today{background:var(--green)!important;color:#fff!important;border-color:var(--green)!important;font-weight:800}
+.cday.sel{background:#FFF3CC!important;color:#8A5A00!important;border-color:var(--gold2)!important;font-weight:800;box-shadow:0 0 0 2px rgba(240,165,0,.25)}
+.cday.today.sel{background:var(--green)!important;color:#fff!important;border-color:var(--gold2)!important;box-shadow:0 0 0 3px var(--gold2)}
 .cday.empty{opacity:0;cursor:default}
+
+/* Dossards — plus lisibles */
+.dossard{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;flex-shrink:0;font-family:var(--mono);letter-spacing:-.5px}
+.d-gold {background:#FFF0CC;color:#8A5A00;border:2px solid var(--gold2)}
+.d-green{background:#D4F0E4;color:#0A5A38;border:2px solid var(--green3)}
+.d-blue {background:#D4E8FA;color:#0A3A6A;border:2px solid var(--blue)}
+.d-gray {background:#EEF2EE;color:#3A5A3A;border:2px solid var(--border2)}
+/* Grand dossard dans le classement score */
+.dossard-lg{width:40px;height:40px;border-radius:9px;font-size:16px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:var(--mono)}
 
 /* BOTTOM NAV */
 #nav{flex-shrink:0;background:#fff;border-top:1px solid var(--border);display:flex;padding:6px 0 calc(var(--safe-b)+4px);box-shadow:0 -2px 10px rgba(0,0,0,.05)}
@@ -329,18 +339,21 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);font
           <div class="cal-month" id="cl-mlbl"></div>
           <button id="cl-next">▶</button>
         </div>
+        <!-- Barre date sélectionnée -->
+        <div id="cl-sel-info" style="font-size:12px;font-weight:700;color:var(--green);margin-bottom:10px;padding:8px 12px;background:var(--bg);border-radius:var(--r2);text-align:center;border:1px solid var(--border)">—</div>
         <div class="cal-hdr">
           <div class="cal-hd">Lu</div><div class="cal-hd">Ma</div><div class="cal-hd">Me</div>
           <div class="cal-hd">Je</div><div class="cal-hd">Ve</div><div class="cal-hd">Sa</div><div class="cal-hd">Di</div>
         </div>
         <div class="cal-grid" id="cl-grid"></div>
-        <div style="display:flex;gap:14px;margin-top:10px;font-size:11px;color:var(--txt3)">
+        <div style="display:flex;gap:12px;margin-top:10px;font-size:11px;color:var(--txt3);flex-wrap:wrap">
           <span><span style="display:inline-block;width:10px;height:10px;background:#E6F4EE;border:1px solid #B8DFD0;border-radius:2px;margin-right:3px;vertical-align:middle"></span>Quinté+ dispo</span>
           <span><span style="display:inline-block;width:10px;height:10px;background:var(--green);border-radius:2px;margin-right:3px;vertical-align:middle"></span>Aujourd'hui</span>
+          <span><span style="display:inline-block;width:10px;height:10px;background:#FFF3CC;border:2px solid var(--gold2);border-radius:2px;margin-right:3px;vertical-align:middle"></span>Sélectionné</span>
         </div>
       </div>
       <div class="sec">Course sélectionnée</div>
-      <div id="cl-detail"><div class="ibox ibox-b">Sélectionne un jour pour charger le Quinté+</div></div>
+      <div id="cl-detail"><div class="ibox ibox-b">👆 Sélectionne un jour dans le calendrier</div></div>
       <div class="sec">Derniers résultats</div>
       <div id="cl-arch"></div>
     </div>
@@ -676,7 +689,7 @@ function renderPronos(){
     if(isOut) sigs.push(`<span class="sig" style="background:#FFF5E6;color:var(--orange)">OUT</span>`);
     row.innerHTML=`
       <div style="font-size:${i<3?'20':'14'}px;width:24px;text-align:center;flex-shrink:0">${medals[i]}</div>
-      <div class="dossard" style="width:32px;height:32px;border-radius:6px;background:${isOut?'#FFF5E6':'var(--bg)'};color:${isOut?'var(--orange)':'var(--txt2)'};border:1.5px solid ${isOut?'var(--orange)':'var(--border2)'};">${num}</div>
+      <div style="width:40px;height:40px;border-radius:9px;background:${isOut?'#FFF5E6':i===0?'#FFF0CC':i===1?'#D4F0E4':i===2?'#D4E8FA':'#EEF2EE'};color:${isOut?'var(--orange)':i===0?'#8A5A00':i===1?'#0A5A38':i===2?'#0A3A6A':'#3A5A3A'};border:2px solid ${isOut?'var(--orange)':i===0?'var(--gold2)':i===1?'var(--green3)':i===2?'var(--blue)':'var(--border2)'};display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;flex-shrink:0;font-family:var(--mono);letter-spacing:-.5px">${num}</div>
       <div style="flex:1;min-width:0">
         <div class="h-name">${horse.nom||horse.name||'N/A'} ${sigs.join('')}</div>
         <div class="h-sub">${horse.driver||horse.jockey||'—'} · <span class="h-music">${horse._rawMusic||'—'}</span></div>
@@ -701,9 +714,14 @@ function renderPronos(){
     row.className='score-row'; row.style.cursor='pointer'; row.onclick=()=>openOv(horse);
     const imp=impliedProb(horse._cote);
     const diff=horse._prob-imp;
+    const isOut = num >= 7;
+    // Couleur dossard selon rang dans classement IA
+    const dBg  = i===0?'#FFF0CC': i===1?'#D4F0E4': i===2?'#D4E8FA': isOut?'#FFF5E6':'#EEF2EE';
+    const dCol = i===0?'#8A5A00': i===1?'#0A5A38': i===2?'#0A3A6A': isOut?'var(--orange)':'#3A5A3A';
+    const dBdr = i===0?'var(--gold2)': i===1?'var(--green3)': i===2?'var(--blue)': isOut?'var(--orange)':'var(--border2)';
     row.innerHTML=`
-      <div class="rank-num">${i+1}</div>
-      <div class="dossard d-gray" style="margin-right:8px;${num>=7?'background:#FFF5E6;color:var(--orange);border-color:var(--orange)':''}">${num}</div>
+      <div style="font-size:11px;font-weight:800;color:var(--txt3);width:20px;text-align:center;flex-shrink:0">${i+1}</div>
+      <div style="width:40px;height:40px;border-radius:9px;background:${dBg};color:${dCol};border:2px solid ${dBdr};display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;flex-shrink:0;font-family:var(--mono);margin:0 10px 0 6px">${num}</div>
       <div class="score-bar-wrap">
         <div class="score-name">${horse.nom||horse.name||'N/A'} <span style="font-size:10px;color:var(--txt3)">· moy.${horse._music.avg3} · ${fmtG(horse._gains)}</span></div>
         <div class="score-track"><div class="score-fill" style="width:${horse._prob}%;background:${pc(horse._prob)}"></div></div>
@@ -801,17 +819,22 @@ function renderPartants(){
   const list=document.getElementById('pt-list');
   list.innerHTML='';
   h.forEach((horse,i)=>{
-    const num=horse.numPmu||horse.num||'?';
+    const num=horse._num||horse.numPmu||horse.num||'?';
     const row=document.createElement('div');
     row.className='hrow'; row.onclick=()=>openOv(horse);
+    const isOut = num >= 7;
     const sigs=[];
     if(horse._isOe) sigs.push(`<span class="sig sig-oe">👓</span>`);
     if(horse._isDef) sigs.push(`<span class="sig sig-def">⚡</span>`);
     if(horse._music.hasDQ) sigs.push(`<span class="sig sig-warn">DQ</span>`);
-    if(isValue(horse)) sigs.push(`<span class="sig sig-val">VAL</span>`);
+    if(isValue(horse)) sigs.push(`<span class="sig sig-val">💰</span>`);
+    if(isOut) sigs.push(`<span class="sig" style="background:#FFF5E6;color:var(--orange);font-size:9px">OUT</span>`);
+    const dBg = i===0?'#FFF0CC':i===1?'#D4F0E4':i===2?'#D4E8FA':isOut?'#FFF5E6':'#EEF2EE';
+    const dCl = i===0?'#8A5A00':i===1?'#0A5A38':i===2?'#0A3A6A':isOut?'var(--orange)':'#3A5A3A';
+    const dBr = i===0?'var(--gold2)':i===1?'var(--green3)':i===2?'var(--blue)':isOut?'var(--orange)':'var(--border2)';
     row.innerHTML=`
-      <div class="dossard ${dc(i)}">${num}</div>
-      <div style="flex:1;min-width:0">
+      <div style="width:40px;height:40px;border-radius:9px;background:${dBg};color:${dCl};border:2px solid ${dBr};display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;flex-shrink:0;font-family:var(--mono)">${num}</div>
+      <div style="flex:1;min-width:0;margin-left:4px">
         <div class="h-name">${horse.nom||horse.name||'N/A'} ${sigs.join(' ')}</div>
         <div class="h-sub">${horse.driver||horse.jockey||'—'} · ${horse._age||'?'} ans · ${fmtG(horse._gains)}</div>
         <div class="h-music">${horse._rawMusic||'—'}</div>
@@ -1032,30 +1055,84 @@ function buildCal(){
   const d=A.calMonth, y=d.getFullYear(), m=d.getMonth();
   const fd=(new Date(y,m,1).getDay()+6)%7;
   const days=new Date(y,m+1,0).getDate();
-  document.getElementById('cl-mlbl').textContent=new Date(y,m).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+  const monthLabel = new Date(y,m).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+  document.getElementById('cl-mlbl').textContent = monthLabel.charAt(0).toUpperCase()+monthLabel.slice(1);
+
+  // Afficher la date sélectionnée au-dessus du calendrier
+  const isSelToday = A.selDate.toDateString() === A.today.toDateString();
+  const selInfo = document.getElementById('cl-sel-info');
+  if(selInfo){
+    selInfo.textContent = isSelToday
+      ? "📅 Aujourd'hui — " + fmtFR(A.selDate)
+      : "📅 Sélectionné : " + fmtFR(A.selDate);
+    selInfo.style.color = isSelToday ? 'var(--green)' : 'var(--gold)';
+  }
+
   const grid=document.getElementById('cl-grid');
   grid.innerHTML='';
-  for(let i=0;i<fd;i++){const e=document.createElement('div');e.className='cday empty';grid.appendChild(e);}
+  for(let i=0;i<fd;i++){
+    const e=document.createElement('div');
+    e.className='cday empty';
+    grid.appendChild(e);
+  }
   for(let day=1;day<=days;day++){
     const dt=new Date(y,m,day);
     const isT=dt.toDateString()===A.today.toDateString();
     const isS=dt.toDateString()===A.selDate.toDateString();
     const el=document.createElement('div');
     el.className='cday q'+(isT?' today':'')+(isS?' sel':'');
-    el.textContent=day;
+    // Afficher le point uniquement si pas aujourd'hui ni sélectionné (évite surcharge)
+    el.innerHTML=`<span>${day}</span>${(!isT&&!isS)?'<div class="cal-day-dot"></div>':''}`;
     el.onclick=()=>selectDay(dt);
     grid.appendChild(el);
   }
 }
 
 async function selectDay(dt){
-  A.selDate=dt; buildCal();
-  document.getElementById('cl-detail').innerHTML='<div class="ibox ibox-b">Chargement…</div>';
+  A.selDate = dt;
+  buildCal();
+
+  // Mettre à jour le header immédiatement
+  document.getElementById('hdr-date').textContent = fmtFR(dt);
+
+  // Afficher la date choisie dans le détail calendrier
+  const isToday = dt.toDateString() === A.today.toDateString();
+  const dtLabel = isToday ? "Aujourd'hui · " + fmtFR(dt) : fmtFR(dt);
+  document.getElementById('cl-detail').innerHTML =
+    `<div class="ibox ibox-b">📅 <strong>${dtLabel}</strong> — Chargement du Quinté+…</div>`;
+
+  // Vider les données actuelles et recharger
+  A.horses = null; A.race = null;
+  showSk();
   await load(dt);
-  const r=A.race;
-  document.getElementById('cl-detail').innerHTML=r
-    ?`<div class="card cp"><div style="font-size:10px;font-weight:700;color:var(--green);text-transform:uppercase;margin-bottom:6px">⭐ Quinté+</div><div style="font-size:15px;font-weight:800;margin-bottom:4px">${r.course.libelle}</div><div style="font-size:12px;color:var(--txt2)">${r.reunion.hippodrome?.libelleCourt||''} · ${r.course.distance||0}m · ${r.course.nombreDeclaresPartants||'?'} partants · ${((r.course.montantPrix||0)/1000).toFixed(0)}k€</div></div>`
-    :'<div class="ibox ibox-o">Données non disponibles pour cette date</div>';
+
+  const r = A.race;
+  if(r){
+    const c = r.course, re = r.reunion;
+    const heure = new Date(c.heureDepart).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    document.getElementById('cl-detail').innerHTML =
+      `<div class="card" style="overflow:hidden">
+        <div style="background:var(--green);padding:12px 14px">
+          <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">⭐ Quinté+ · ${dtLabel}</div>
+          <div style="font-size:16px;font-weight:800;color:#fff">${c.libelle||'Quinté+'}</div>
+        </div>
+        <div style="padding:12px 14px;display:flex;gap:16px;flex-wrap:wrap">
+          <div><div style="font-size:16px;font-weight:800;color:var(--txt);font-family:var(--mono)">${heure}</div><div style="font-size:10px;color:var(--txt3)">Départ</div></div>
+          <div><div style="font-size:16px;font-weight:800;color:var(--green);font-family:var(--mono)">${re.hippodrome?.libelleCourt||'—'}</div><div style="font-size:10px;color:var(--txt3)">Hippodrome</div></div>
+          <div><div style="font-size:16px;font-weight:800;color:var(--blue);font-family:var(--mono)">${c.distance||0}m</div><div style="font-size:10px;color:var(--txt3)">Distance</div></div>
+          <div><div style="font-size:16px;font-weight:800;color:var(--txt);font-family:var(--mono)">${c.nombreDeclaresPartants||'?'}</div><div style="font-size:10px;color:var(--txt3)">Partants</div></div>
+          <div><div style="font-size:16px;font-weight:800;color:var(--gold);font-family:var(--mono)">${((c.montantPrix||0)/1000).toFixed(0)}k€</div><div style="font-size:10px;color:var(--txt3)">Allocation</div></div>
+        </div>
+        <div style="padding:0 14px 12px">
+          <div style="background:#E8F7EF;border-radius:var(--r2);padding:8px 12px;font-size:12px;color:var(--green)">
+            ✅ Données PMU chargées — Va sur l'onglet <strong>Pronos</strong> pour voir la sélection IA
+          </div>
+        </div>
+      </div>`;
+  } else {
+    document.getElementById('cl-detail').innerHTML =
+      `<div class="ibox ibox-o">⚠️ Pas de Quinté+ trouvé pour le ${fmtFR(dt)} — données de démo affichées</div>`;
+  }
 }
 
 // ╔═══════════════════════════════════════════╗
@@ -1206,9 +1283,17 @@ function switchScreen(name){
   document.getElementById('scr-'+name)?.classList.add('on');
   document.querySelectorAll(`[data-s="${name}"]`).forEach(b=>b.classList.add('active','on'));
   document.getElementById('content').scrollTop=0;
-  if(name==='partants') renderPartants();
-  else if(name==='resultats') renderResultats();
-  else if(name==='stats') renderStats();
+
+  // Mettre à jour la date dans le header selon la date sélectionnée
+  document.getElementById('hdr-date').textContent = fmtFR(A.selDate);
+
+  if(name==='partants')   renderPartants();
+  else if(name==='pronos'){
+    // Re-render pronos si les données sont disponibles (date peut avoir changé)
+    if(A.horses) renderPronos(); else show('pr');
+  }
+  else if(name==='resultats')  renderResultats();
+  else if(name==='stats')      renderStats();
   else if(name==='calendrier') renderCalendrier();
 }
 document.querySelectorAll('.tab,.nb').forEach(b=>b.addEventListener('click',()=>switchScreen(b.dataset.s)));
