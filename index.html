@@ -638,7 +638,7 @@ function renderPronos(){
       <div class="hero-kpis">
         <div><div class="kpi-v">${((c.montantPrix||0)/1000).toFixed(0)}k€</div><div class="kpi-l">Allocation</div></div>
         <div><div class="kpi-v">${c.nombreDeclaresPartants||'?'}</div><div class="kpi-l">Partants</div></div>
-        <div><div class="kpi-v" style="color:var(--gold2)">${h[0].numPmu||h[0].num}</div><div class="kpi-l">Favori IA</div></div>
+        <div><div class="kpi-v" style="color:var(--gold2)">${h[0]._num||h[0].numPmu||h[0].num}</div><div class="kpi-l">Favori IA</div></div>
         <div><div class="kpi-v" style="color:#4CD964">${h[0]._prob}%</div><div class="kpi-l">Probabilité</div></div>
       </div>`;
   } else {
@@ -649,31 +649,34 @@ function renderPronos(){
       <div class="hero-kpis">
         <div><div class="kpi-v">120k€</div><div class="kpi-l">Allocation</div></div>
         <div><div class="kpi-v">${h.length}</div><div class="kpi-l">Partants</div></div>
-        <div><div class="kpi-v" style="color:var(--gold2)">${h[0].numPmu||h[0].num}</div><div class="kpi-l">Favori IA</div></div>
+        <div><div class="kpi-v" style="color:var(--gold2)">${h[0]._num||h[0].numPmu||h[0].num}</div><div class="kpi-l">Favori IA</div></div>
         <div><div class="kpi-v" style="color:#4CD964">${h[0]._prob}%</div><div class="kpi-l">Probabilité</div></div>
       </div>`;
   }
 
+  // Sélections intelligentes v5
+  const selStd = selStandard(h);
+  const selRsk = selRisque(h);
+
   // Top 5 — sélection STANDARD
   const t5=document.getElementById('pr-top5');
   t5.innerHTML='';
-  const selStd  = selStandard(h);
-  const selRsk  = selRisque(h);
   const medals=['🥇','🥈','🥉','4️⃣','5️⃣'];
   selStd.forEach((horse,i)=>{
     const num=horse._num||horse.numPmu||horse.num||i+1;
     const row=document.createElement('div');
     row.className='hrow'; row.onclick=()=>openOv(horse);
+    const isOut = num >= 7;
     const sigs=[];
     if(horse._isOe) sigs.push(`<span class="sig sig-oe">👓</span>`);
     if(horse._isDef) sigs.push(`<span class="sig sig-def">⚡</span>`);
     if(horse._music.trend>1.5) sigs.push(`<span class="sig sig-hot">📈</span>`);
     if(horse._music.hasDQ) sigs.push(`<span class="sig sig-warn">DQ</span>`);
     if(isValue(horse)) sigs.push(`<span class="sig sig-val">💰</span>`);
-    const isOut = num >= 7;
+    if(isOut) sigs.push(`<span class="sig" style="background:#FFF5E6;color:var(--orange)">OUT</span>`);
     row.innerHTML=`
       <div style="font-size:${i<3?'20':'14'}px;width:24px;text-align:center;flex-shrink:0">${medals[i]}</div>
-      <div class="dossard ${isOut?'d-gray':dc(i)}" style="${isOut?'background:#FFF5E6;color:var(--orange);border-color:var(--orange)':''}">${num}</div>
+      <div class="dossard" style="width:32px;height:32px;border-radius:6px;background:${isOut?'#FFF5E6':'var(--bg)'};color:${isOut?'var(--orange)':'var(--txt2)'};border:1.5px solid ${isOut?'var(--orange)':'var(--border2)'};">${num}</div>
       <div style="flex:1;min-width:0">
         <div class="h-name">${horse.nom||horse.name||'N/A'} ${sigs.join('')}</div>
         <div class="h-sub">${horse.driver||horse.jockey||'—'} · <span class="h-music">${horse._rawMusic||'—'}</span></div>
@@ -693,112 +696,85 @@ function renderPronos(){
   const sc=document.getElementById('pr-scores');
   sc.innerHTML='';
   h.forEach((horse,i)=>{
-    const num=horse.numPmu||horse.num||'?';
-    const r=document.createElement('div');
-    r.className='score-row'; r.style.cursor='pointer'; r.onclick=()=>openOv(horse);
+    const num=horse._num||horse.numPmu||horse.num||'?';
+    const row=document.createElement('div');
+    row.className='score-row'; row.style.cursor='pointer'; row.onclick=()=>openOv(horse);
     const imp=impliedProb(horse._cote);
     const diff=horse._prob-imp;
-    r.innerHTML=`
+    row.innerHTML=`
       <div class="rank-num">${i+1}</div>
-      <div class="dossard ${dc(i)}" style="margin-right:8px">${num}</div>
+      <div class="dossard d-gray" style="margin-right:8px;${num>=7?'background:#FFF5E6;color:var(--orange);border-color:var(--orange)':''}">${num}</div>
       <div class="score-bar-wrap">
-        <div class="score-name">${horse.nom||horse.name||'N/A'} <span style="font-size:10px;color:var(--txt3)">·  moy.${horse._music.avg3} · ${fmtG(horse._gains)}</span></div>
+        <div class="score-name">${horse.nom||horse.name||'N/A'} <span style="font-size:10px;color:var(--txt3)">· moy.${horse._music.avg3} · ${fmtG(horse._gains)}</span></div>
         <div class="score-track"><div class="score-fill" style="width:${horse._prob}%;background:${pc(horse._prob)}"></div></div>
       </div>
       <div style="text-align:right;min-width:72px;flex-shrink:0">
         <div class="score-pct" style="color:${pc(horse._prob)}">${horse._prob}%</div>
         <div style="font-size:10px;color:${diff>=5?'var(--green)':diff<=-5?'var(--red)':'var(--txt3)'}">${diff>0?'+':''}${diff} vs PMU</div>
       </div>`;
-    sc.appendChild(r);
+    sc.appendChild(row);
   });
 
-  // Combinaisons — Standard + Risqué
-  const stdNums = selStd.map(x=>x._num||x.numPmu||x.num||0);
-  const rskNums = selRsk.map(x=>x._num||x.numPmu||x.num||0);
+  // Combinaisons
+  const stdNums  = selStd.map(x=>x._num||x.numPmu||x.num||0);
+  const rskNums  = selRsk.map(x=>x._num||x.numPmu||x.num||0);
   const stdSorted = [...stdNums].sort((a,b)=>a-b);
   const rskSorted = [...rskNums].sort((a,b)=>a-b);
   const outsidersInRsk = rskNums.filter(n=>n>=7);
+  const base1 = stdNums[0]||0;
+  const base2 = stdNums[1]||0;
+  const extraHorse = h.find(x=>{const n=x._num||x.numPmu||x.num||0; return n!==base1 && n!==base2;});
+  const extraNum = extraHorse ? (extraHorse._num||extraHorse.numPmu||extraHorse.num||'?') : '?';
 
-  document.getElementById('pr-combos').innerHTML=`
-    <!-- Backtest warning -->
-    <div style="background:#FFF8E6;border-left:3px solid var(--gold2);border-radius:var(--r2);padding:10px 12px;margin-bottom:12px;font-size:11px;color:var(--gold)">
-      📊 <strong>Backtest 9 Quinté+ réels :</strong> 44% des gagnants sont N°7+, 89% des top5 contiennent un N°10+.
-      Le modèle v5 intègre un bonus outsider pour les grands champs.
-    </div>
-
-    <!-- Sélection STANDARD -->
-    <div style="margin-bottom:12px">
-      <div style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px">
-        ✅ Sélection standard — ~33% top5 correct
-      </div>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        ${[
-          ['🎯','Direct',stdNums.join(' − ')],
-          ['🔀','Désordre',stdSorted.join(' − ')],
-          ['⚡','Base + 1',`${stdNums[0]} − ${stdNums[1]} + N°${h.find(x=>!stdNums.slice(0,2).includes(x._num||x.numPmu||x.num))?.(_num||0)||'?'}`],
-        ].map(([ic,lb,v])=>`
-          <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg);border-radius:var(--r2);border:1px solid var(--border)">
-            <span style="font-size:16px;flex-shrink:0">${ic}</span>
-            <div style="flex:1">
-              <div style="font-size:10px;color:var(--txt3);margin-bottom:1px">${lb}</div>
-              <div style="font-size:14px;font-weight:800;color:var(--green);font-family:var(--mono);letter-spacing:1px">${v}</div>
-            </div>
-          </div>`).join('')}
-      </div>
-    </div>
-
-    <div style="height:1px;background:var(--border);margin:12px 0"></div>
-
-    <!-- Sélection RISQUÉE -->
-    <div>
-      <div style="font-size:11px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">
-        ⚡ Sélection risquée — outsiders intégrés
-      </div>
-      <div style="font-size:11px;color:var(--txt3);margin-bottom:8px">
-        Top 3 favoris + outsiders ${outsidersInRsk.length?'N°'+outsidersInRsk.join('+N°'):''} sélectionnés par musique.
-        Gains potentiels plus élevés, moins prévisible.
-      </div>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        ${[
-          ['🎰','Direct risqué',rskNums.join(' − ')],
-          ['🔀','Désordre risqué',rskSorted.join(' − ')],
-        ].map(([ic,lb,v])=>`
-          <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:#FFF5F5;border-radius:var(--r2);border:1px solid #FFCCCC">
-            <span style="font-size:16px;flex-shrink:0">${ic}</span>
-            <div style="flex:1">
-              <div style="font-size:10px;color:var(--txt3);margin-bottom:1px">${lb}</div>
-              <div style="font-size:14px;font-weight:800;color:var(--red);font-family:var(--mono);letter-spacing:1px">${v}</div>
-            </div>
-          </div>`).join('')}
-      </div>
-      <div style="font-size:10px;color:var(--txt3);margin-top:8px;line-height:1.5">
-        ⚠️ Pari risqué = ROI potentiel élevé mais taux de succès réduit.
-        Jouer en complément de la sélection standard.
+  const comboRow = (ic,lb,v,bg,col) =>
+    `<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:${bg};border-radius:var(--r2);border:1px solid ${col}40">
+      <span style="font-size:16px;flex-shrink:0">${ic}</span>
+      <div style="flex:1">
+        <div style="font-size:10px;color:var(--txt3);margin-bottom:1px">${lb}</div>
+        <div style="font-size:14px;font-weight:800;color:${col};font-family:var(--mono);letter-spacing:1px">${v}</div>
       </div>
     </div>`;
+
+  document.getElementById('pr-combos').innerHTML=
+    `<div style="background:#FFF8E6;border-left:3px solid var(--gold2);border-radius:var(--r2);padding:10px 12px;margin-bottom:12px;font-size:11px;color:var(--gold)">
+      📊 <strong>Backtest 9 vrais Quinté+ :</strong> 44% des gagnants N°7+, 89% des top5 avec N°10+. Modèle v5 = outsider bonus intégré.
+    </div>
+    <div style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px">✅ Sélection standard</div>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
+      ${comboRow('🎯','Direct',stdNums.join(' − '),'var(--bg)','var(--green)')}
+      ${comboRow('🔀','Désordre',stdSorted.join(' − '),'var(--bg)','var(--green)')}
+      ${comboRow('⚡','Base + 1',base1+' − '+base2+' + N°'+extraNum,'var(--bg)','var(--green3)')}
+    </div>
+    <div style="height:1px;background:var(--border);margin:10px 0"></div>
+    <div style="font-size:11px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;margin-top:10px">⚡ Sélection risquée — outsiders intégrés</div>
+    <div style="font-size:11px;color:var(--txt3);margin-bottom:8px">Top 3 + outsiders ${outsidersInRsk.length ? outsidersInRsk.map(n=>'N°'+n).join(', ') : 'sélectionnés'} (choisis par musique).</div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${comboRow('🎰','Direct risqué',rskNums.join(' − '),'#FFF5F5','var(--red)')}
+      ${comboRow('🔀','Désordre risqué',rskSorted.join(' − '),'#FFF5F5','var(--red)')}
+    </div>
+    <div style="font-size:10px;color:var(--txt3);margin-top:8px;line-height:1.5">⚠️ Pari risqué = gains potentiels plus élevés, taux de succès réduit. À jouer en complément.</div>`;
 
   // Value betting
   const valDiv=document.getElementById('pr-value');
   const values=h.filter(x=>isValue(x));
   const overs=h.filter(x=>isOverlay(x));
-  valDiv.innerHTML=`
-    <div style="font-size:11px;color:var(--txt3);margin-bottom:10px">Vert = sous-coté par PMU · Rouge = sur-coté</div>
-    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px">
-      ${h.map(horse=>{
-        const imp=impliedProb(horse._cote);
-        const diff=horse._prob-imp;
-        const v=diff>=5, o=diff<=-6;
-        return `<div onclick="openOv(window._hs[${h.indexOf(horse)}])" style="cursor:pointer;background:${v?'#E8F7EF':o?'#FEE':'var(--bg)'};border:1.5px solid ${v?'var(--green3)':o?'var(--red)':'var(--border)'};border-radius:8px;padding:8px 10px;text-align:center;min-width:66px">
-          <div style="font-size:10px;color:var(--txt3)">N°${horse.numPmu||horse.num}</div>
-          <div style="font-size:13px;font-weight:800;color:${v?'var(--green)':o?'var(--red)':'var(--txt)'}">${horse._prob}%</div>
-          <div style="font-size:10px;color:var(--txt3)">PMU:${imp}%</div>
-          <div style="font-size:10px;font-weight:700;color:${diff>0?'var(--green)':diff<0?'var(--red)':'var(--txt3)'}">${diff>0?'+':''}${diff}</div>
-        </div>`;
-      }).join('')}
-    </div>
-    ${values.length?`<div class="ibox ibox-g">💰 Valeur détectée: <strong>${values.map(x=>`N°${x.numPmu||x.num} (${x._cote.toFixed(1)}€)`).join(', ')}</strong></div>`:''}
-    ${overs.length?`<div class="ibox ibox-r">⚠️ Sur-cotés à éviter: <strong>${overs.map(x=>`N°${x.numPmu||x.num}`).join(', ')}</strong></div>`:''}`;
-  window._hs = h; // pour onclick inline
+  const cells = h.map(horse=>{
+    const imp=impliedProb(horse._cote);
+    const diff=horse._prob-imp;
+    const v=diff>=5, o=diff<=-6;
+    const n=horse._num||horse.numPmu||horse.num||'?';
+    return `<div onclick="openOv(window._hs[${h.indexOf(horse)}])" style="cursor:pointer;background:${v?'#E8F7EF':o?'#FEE':'var(--bg)'};border:1.5px solid ${v?'var(--green3)':o?'var(--red)':'var(--border)'};border-radius:8px;padding:8px 10px;text-align:center;min-width:66px">
+      <div style="font-size:10px;color:var(--txt3)">N°${n}</div>
+      <div style="font-size:13px;font-weight:800;color:${v?'var(--green)':o?'var(--red)':'var(--txt)'}">${horse._prob}%</div>
+      <div style="font-size:10px;color:var(--txt3)">PMU:${imp}%</div>
+      <div style="font-size:10px;font-weight:700;color:${diff>0?'var(--green)':diff<0?'var(--red)':'var(--txt3)'}">${diff>0?'+':''}${diff}</div>
+    </div>`;
+  }).join('');
+  valDiv.innerHTML=`<div style="font-size:11px;color:var(--txt3);margin-bottom:10px">Vert = sous-coté · Rouge = sur-coté</div>
+    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px">${cells}</div>
+    ${values.length?`<div class="ibox ibox-g">💰 Valeur: <strong>${values.map(x=>`N°${x._num||x.numPmu||x.num} (${x._cote.toFixed(1)}€)`).join(', ')}</strong></div>`:''}
+    ${overs.length?`<div class="ibox ibox-r">⚠️ Sur-cotés: <strong>${overs.map(x=>`N°${x._num||x.numPmu||x.num}`).join(', ')}</strong></div>`:''}`;
+  window._hs = h;
 
   // KPIs modèle
   const bt=backtestStats();
@@ -806,10 +782,11 @@ function renderPronos(){
     <div class="mc"><div class="mv" style="color:var(--green)">${bt.hitRate}%</div><div class="ml">Top5 backtest</div></div>
     <div class="mc"><div class="mv" style="color:var(--gold)">${bt.p1Rate}%</div><div class="ml">Gagnant prédit</div></div>
     <div class="mc"><div class="mv" style="color:${bt.roi>0?'var(--green)':'var(--red)'}">${bt.roi>0?'+':''}${bt.roi}%</div><div class="ml">ROI simulé</div></div>
-    <div class="mc"><div class="mv" style="color:var(--blue);font-size:15px">Bayésien</div><div class="ml">Méthode</div></div>`;
+    <div class="mc"><div class="mv" style="color:var(--blue);font-size:14px">v5 Outsider</div><div class="ml">Modèle</div></div>`;
 
   show('pr');
 }
+
 
 // ╔═══════════════════════════════════════════╗
 //   RENDER — PARTANTS
