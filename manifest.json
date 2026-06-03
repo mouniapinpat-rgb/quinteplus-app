@@ -1,0 +1,12 @@
+{
+  "name": "Quinté+ Pro",
+  "short_name": "Quinté+",
+  "description": "Analyse Quinté+ PMU — probabilités backtestées, résultats, stats",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#1A1A2E",
+  "theme_color": "#1A1A2E",
+  "orientation": "portrait-primary",
+  "icons": [{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}],
+  "lang": "fr-FR"
+}

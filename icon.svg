@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="110" fill="#1A1A2E"/>
+  <circle cx="256" cy="220" r="140" fill="none" stroke="#F5A623" stroke-width="8" opacity=".3"/>
+  <text x="256" y="280" font-size="180" text-anchor="middle">⭐</text>
+  <rect x="80" y="340" width="352" height="60" rx="12" fill="#F5A623" opacity=".15"/>
+  <text x="256" y="385" font-size="46" text-anchor="middle" fill="#F5A623" font-family="Arial Black,sans-serif" font-weight="900" letter-spacing="2">QUINTÉ+ PRO</text>
+</svg>
