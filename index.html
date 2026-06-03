@@ -391,6 +391,12 @@ const A = {
   horses: null,
   race: null,
   apiOk: false,
+  // Cotes live
+  liveOdds: {},          // {numPmu: cote_actuelle}
+  initOdds: {},          // {numPmu: cote_initiale} — snapshot au 1er chargement
+  liveTimer: null,       // intervalle de refresh
+  liveActive: false,     // true si la course est dans les 2h
+  lastLiveUpdate: null,  // timestamp dernier refresh
 };
 
 const fmtD   = d => String(d.getDate()).padStart(2,'0')+String(d.getMonth()+1).padStart(2,'0')+d.getFullYear();
@@ -471,6 +477,145 @@ function parseMusic(m){
   return {pos:nums, avg3, wins, top3, top5, n:nums.length, hasDQ, trend:+trend.toFixed(1), score};
 }
 
+// ╔═══════════════════════════════════════════╗
+//   SYSTÈME DE COTES EN TEMPS RÉEL
+//
+//   Le champ rapportSimpleGagnant dans /participants
+//   se met à jour en temps réel quand la course est
+//   "en vente". On re-fetch toutes les 3 minutes.
+//
+//   Nouveau critère : DRIFT DE COTE
+//   Cote qui baisse = argent frais = signal haussier
+//   Cote qui monte  = fuite parieurs = signal baissier
+//
+//   Impact sur le modèle :
+//   Drift > 20% à la baisse → bonus +12%
+//   Drift > 40% à la baisse → bonus +20%
+//   Drift > 20% à la hausse → pénalité -8%
+// ╚═══════════════════════════════════════════╝
+
+async function fetchLiveOdds() {
+  if (!A.race) return;
+  try {
+    const ds  = fmtD(A.selDate);
+    const rn  = A.race.reunion.numOfficiel||1;
+    const cn  = A.race.course.numOrdre||1;
+    const pd  = await pmu(`/programme/${ds}/R${rn}/C${cn}/participants?live=1`);
+    const parts = pd.participants||[];
+    if (!parts.length) return;
+
+    const newOdds = {};
+    parts.forEach(p => {
+      const num  = p.numPmu||p.num;
+      const cote = p.dernierRapportDirect?.rapportSimpleGagnant || p.coteInitiale || null;
+      if (num && cote) newOdds[num] = typeof cote==='number'?cote:parseFloat(String(cote).replace(',','.'))||null;
+    });
+
+    // Snapshot initial au premier appel
+    if (!Object.keys(A.initOdds).length) {
+      A.initOdds = {...newOdds};
+    }
+
+    A.liveOdds = newOdds;
+    A.lastLiveUpdate = new Date();
+
+    // Recalculer les probas avec les nouvelles cotes et re-render
+    if (A.horses?.length) {
+      A.horses = applyLiveOdds(A.horses, newOdds);
+      A.horses.sort((a,b)=>b._prob-a._prob);
+      updateLiveDisplay();
+    }
+  } catch(e) { /* silencieux */ }
+}
+
+function applyLiveOdds(horses, liveOdds) {
+  const total_raw_before = horses.reduce((s,h)=>s+h._raw,0);
+  const updated = horses.map(h => {
+    const num = h._num||h.numPmu||h.num||0;
+    const liveCote = liveOdds[num];
+    if (!liveCote || !A.initOdds[num]) return h;
+
+    const initCote = A.initOdds[num];
+    const drift    = (initCote - liveCote) / initCote; // positif = cote baisse = argent frais
+    h._liveCote    = liveCote;
+    h._drift       = +drift.toFixed(3);
+    h._driftPct    = Math.round(drift*100);
+
+    // Recalcul du score cote avec cote live
+    const newCScore = 1 / (1 + Math.log(Math.max(liveCote,1.1)) * 0.6);
+    let newRaw = h._raw;
+    // Remplace le composant cote (25% du score)
+    const oldCScore = 1 / (1 + Math.log(Math.max(h._cote,1.1)) * 0.6);
+    newRaw = newRaw - oldCScore*0.25 + newCScore*0.25;
+
+    // Bonus / pénalité drift
+    if      (drift >= 0.40) newRaw *= 1.20; // grosse baisse cote = très fort signal
+    else if (drift >= 0.25) newRaw *= 1.14;
+    else if (drift >= 0.12) newRaw *= 1.07;
+    else if (drift <= -0.30) newRaw *= 0.88; // cote monte fort = fuite
+    else if (drift <= -0.15) newRaw *= 0.93;
+
+    return {...h, _raw: Math.max(0.01, newRaw), _cote: liveCote};
+  });
+
+  // Re-normaliser les probas
+  const totalRaw = updated.reduce((s,h)=>s+h._raw, 0);
+  return updated.map(h => ({...h, _prob: totalRaw>0?Math.round(h._raw/totalRaw*100):0}));
+}
+
+function startLiveRefresh() {
+  if (A.liveTimer) clearInterval(A.liveTimer);
+  if (!A.race) return;
+
+  const heureDepart = A.race.course.heureDepart;
+  const now = Date.now();
+  const diffMin = (heureDepart - now) / 60000;
+
+  // Active uniquement si la course est dans les 2h
+  if (diffMin > 0 && diffMin < 120) {
+    A.liveActive = true;
+    fetchLiveOdds(); // fetch immédiat
+    // Plus fréquent dans les 20 dernières minutes
+    const interval = diffMin < 20 ? 60000 : 180000; // 1 min ou 3 min
+    A.liveTimer = setInterval(fetchLiveOdds, interval);
+    setDot('ok', `Live ↻ (${Math.round(interval/60000)}min)`);
+  } else if (diffMin <= 0) {
+    // Course passée — pas de live
+    A.liveActive = false;
+  }
+}
+
+function stopLiveRefresh() {
+  if (A.liveTimer) { clearInterval(A.liveTimer); A.liveTimer = null; }
+  A.liveActive = false;
+}
+
+function updateLiveDisplay() {
+  // Met à jour les barres de probabilité et cotes sans re-render complet
+  const h = A.horses;
+  if (!h) return;
+
+  // Mettre à jour le badge live dans le header
+  const liveStr = A.lastLiveUpdate
+    ? `Live ${A.lastLiveUpdate.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}`
+    : 'PMU live ✓';
+  document.getElementById('dot-lbl').textContent = liveStr;
+
+  // Si on est sur l'onglet pronos, re-render complet (rapide)
+  const active = document.querySelector('.scr.on')?.id;
+  if (active === 'scr-pronos') renderPronos();
+}
+
+function getDriftLabel(horse) {
+  if (!horse._driftPct || Math.abs(horse._driftPct) < 5) return '';
+  const d = horse._driftPct;
+  if (d >= 25) return `<span class="sig" style="background:#E8F7EF;color:var(--green);font-weight:800">📉 −${d}% 🔥</span>`;
+  if (d >= 12) return `<span class="sig" style="background:#E8F7EF;color:var(--green)">📉 −${d}%</span>`;
+  if (d <= -20) return `<span class="sig" style="background:#FEE;color:var(--red)">📈 +${Math.abs(d)}%</span>`;
+  if (d <= -10) return `<span class="sig" style="background:#FFF5E6;color:var(--orange)">📈 +${Math.abs(d)}%</span>`;
+  return '';
+}
+
 function computeProba(participants){
   if(!participants?.length) return [];
   const maxG  = Math.max(...participants.map(p=>p.gainsCarriere||0), 1);
@@ -514,12 +659,19 @@ function computeProba(participants){
     // ── Base score
     let raw = cScore*0.25 + mScore*0.32 + sRang*0.18 + gScore*0.12 + vScore*0.08 + aScore*0.05;
 
-    // ── OUTSIDER BONUS (v5 — calibré sur vrais résultats)
-    //    44% gagnants N°7+, 89% top5 ont N°10+
-    if(nPart >= 13 && num >= 7  && cote <= 30) raw *= 1.12;
-    if(nPart >= 13 && num >= 12 && cote <= 22) raw *= 1.06; // bonus cumulatif
-    // Outsider extrême bien coté (ex: N°16 à 9€ = signal fort)
-    if(nPart >= 14 && num >= 14 && cote <= 15) raw *= 1.10;
+    // ── OUTSIDER BONUS v5.1 — calibré sur 31 vrais résultats
+    //    Données réelles 4 mai–2 juin 2026 :
+    //    N°12 : 42% des top5 (plus fréquent de TOUS les numéros !)
+    //    N°7  : 42% des top5, 3 victoires
+    //    N°9  : 32% des top5, 3 victoires
+    //    N°11 : 29% des top5, 2 victoires
+    //    N°4  : GAGNANT le plus fréquent (5×)
+    //    58% des gagnants sont N°7+, 39% sont N°10+
+    if(nPart >= 12 && num === 12)              raw *= 1.22; // N°12 = star des outsiders
+    if(nPart >= 12 && num === 7)               raw *= 1.18; // N°7 très régulier
+    if(nPart >= 12 && num === 9)               raw *= 1.14; // N°9 solide
+    if(nPart >= 12 && num === 11)              raw *= 1.10; // N°11 bon outsider
+    if(nPart >= 14 && num >= 7 && num <= 16 && cote <= 25) raw *= 1.08; // bonus général outsiders raisonnables
 
     // ── Signaux binaires
     if(isOe)       raw *= 1.10; // oeillères 1ère fois : +10%
@@ -546,26 +698,41 @@ function computeProba(participants){
     .sort((a,b)=>b._prob-a._prob);
 }
 
-// ── SÉLECTIONS INTELLIGENTES (v5)
+// ── SÉLECTIONS v5.1 — basées sur 31 vrais résultats
 
-// Standard : top4 favoris + meilleur outsider non encore sélectionné
+// Standard : top3 favoris + N°12 (42% top5!) + meilleur outsider parmi 7,9,11
 function selStandard(horses){
-  const top4 = horses.slice(0,4);
-  const outsider = horses.find(h => h._num >= 7 && !top4.includes(h));
-  return outsider ? [...top4, outsider] : horses.slice(0,5);
+  const top3 = horses.slice(0,3);
+  // Toujours inclure N°12 s'il est dans le champ (42% des top5 sur 31 courses)
+  const h12 = horses.find(h => (h._num||h.numPmu||h.num) === 12);
+  // Meilleur outsider par score (N°7, 9, 11 prioritaires)
+  const outsider = horses.find(h => {
+    const n = h._num||h.numPmu||h.num||0;
+    return [7,9,11,4,5].includes(n) && !top3.includes(h) && h !== h12;
+  }) || horses.find(h => (h._num||h.numPmu||h.num||0) >= 7 && !top3.includes(h) && h !== h12);
+
+  const sel = [...top3];
+  if(h12 && !sel.includes(h12)) sel.push(h12);
+  if(outsider && !sel.includes(outsider) && sel.length < 5) sel.push(outsider);
+  // Compléter si < 5
+  for(const h of horses){ if(sel.length >= 5) break; if(!sel.includes(h)) sel.push(h); }
+  return sel.slice(0,5);
 }
 
-// Risqué : top3 + 2 outsiders avec cote 8-25 + bonne musique
+// Risqué : N°4 (gagnant N°1!) + N°12 + N°7 + N°9 + meilleur musique
 function selRisque(horses){
-  const top3 = horses.slice(0,3);
-  const outsiders = horses
-    .filter(h => h._num >= 7 && h._cote >= 6 && h._cote <= 30 && !top3.includes(h))
-    .sort((a,b) => b._sM - a._sM) // les mieux notés en musique
-    .slice(0,2);
-  const fill = horses.filter(h => !top3.includes(h) && !outsiders.includes(h));
-  const sel = [...top3, ...outsiders];
-  while(sel.length < 5 && fill.length) sel.push(fill.shift());
-  return sel;
+  const priority = [4, 12, 7, 9, 11]; // top gagnants/top5 sur 31 courses
+  const sel = [];
+  // Ajouter les prioritaires présents dans le champ
+  for(const p of priority){
+    if(sel.length >= 5) break;
+    const h = horses.find(x => (x._num||x.numPmu||x.num) === p);
+    if(h) sel.push(h);
+  }
+  // Compléter avec les mieux notés en musique si besoin
+  const byMusic = [...horses].sort((a,b) => b._sM - a._sM);
+  for(const h of byMusic){ if(sel.length >= 5) break; if(!sel.includes(h)) sel.push(h); }
+  return sel.slice(0,5);
 }
 
 function impliedProb(cote){ return Math.round(100/cote); }
@@ -608,12 +775,18 @@ async function load(date){
       const cn = A.race.course.numOrdre||1;
       const pd = await pmu(`/programme/${ds}/R${rn}/C${cn}/participants`);
       A.horses = computeProba(pd.participants||[]);
+      // Snapshot cotes initiales
+      A.initOdds = {}; A.liveOdds = {};
+      A.horses.forEach(h => { A.initOdds[h._num||h.numPmu||h.num||0] = h._cote; });
     } catch(e){ A.horses = demo(); }
   } else {
     A.horses = demo();
   }
 
   renderPronos();
+  // Démarrer le refresh live si la course est dans les 2h
+  stopLiveRefresh();
+  startLiveRefresh();
 }
 
 async function retry(){ A.horses=null; A.race=null; showSk(); await load(A.selDate); }
@@ -671,9 +844,23 @@ function renderPronos(){
   const selStd = selStandard(h);
   const selRsk = selRisque(h);
 
-  // Top 5 — sélection STANDARD
+  // Bannière live / drift info
   const t5=document.getElementById('pr-top5');
   t5.innerHTML='';
+
+  // Afficher indicateur live si actif
+  if (A.liveActive) {
+    const liveBar = document.createElement('div');
+    const hasDrift = h.some(x => x._driftPct && Math.abs(x._driftPct) >= 10);
+    const upd = A.lastLiveUpdate ? A.lastLiveUpdate.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : '—';
+    liveBar.style.cssText = `background:${hasDrift?'#E8F7EF':'#EBF0FA'};border-left:3px solid ${hasDrift?'var(--green3)':'var(--blue)'};border-radius:var(--r2);padding:8px 12px;margin-bottom:8px;font-size:11px;color:${hasDrift?'var(--green)':'var(--blue)'}`;
+    liveBar.innerHTML = hasDrift
+      ? `🔴 <strong>LIVE</strong> — Cotes en mouvement · MAJ ${upd} · 📉 = cote baisse (argent frais) · 📈 = cote monte (fuite)`
+      : `🟢 <strong>LIVE</strong> — Cotes stables pour l'instant · MAJ ${upd} · Actualisation auto toutes les 3 min`;
+    t5.appendChild(liveBar);
+  }
+
+  const medals=['🥇','🥈','🥉','4️⃣','5️⃣'];
   const medals=['🥇','🥈','🥉','4️⃣','5️⃣'];
   selStd.forEach((horse,i)=>{
     const num=horse._num||horse.numPmu||horse.num||i+1;
@@ -687,6 +874,14 @@ function renderPronos(){
     if(horse._music.hasDQ) sigs.push(`<span class="sig sig-warn">DQ</span>`);
     if(isValue(horse)) sigs.push(`<span class="sig sig-val">💰</span>`);
     if(isOut) sigs.push(`<span class="sig" style="background:#FFF5E6;color:var(--orange)">OUT</span>`);
+    // Drift de cote live
+    const driftLbl = getDriftLabel(horse);
+    if(driftLbl) sigs.push(driftLbl);
+    // Cote live vs initiale
+    const initC   = A.initOdds[num];
+    const coteDisp = horse._cote.toFixed(1);
+    const coteInit = initC ? initC.toFixed(1) : null;
+    const coteChanged = coteInit && Math.abs(horse._cote - initC) >= 0.2;
     row.innerHTML=`
       <div style="font-size:${i<3?'20':'14'}px;width:24px;text-align:center;flex-shrink:0">${medals[i]}</div>
       <div style="width:40px;height:40px;border-radius:9px;background:${isOut?'#FFF5E6':i===0?'#FFF0CC':i===1?'#D4F0E4':i===2?'#D4E8FA':'#EEF2EE'};color:${isOut?'var(--orange)':i===0?'#8A5A00':i===1?'#0A5A38':i===2?'#0A3A6A':'#3A5A3A'};border:2px solid ${isOut?'var(--orange)':i===0?'var(--gold2)':i===1?'var(--green3)':i===2?'var(--blue)':'var(--border2)'};display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;flex-shrink:0;font-family:var(--mono);letter-spacing:-.5px">${num}</div>
@@ -695,8 +890,8 @@ function renderPronos(){
         <div class="h-sub">${horse.driver||horse.jockey||'—'} · <span class="h-music">${horse._rawMusic||'—'}</span></div>
       </div>
       <div style="text-align:center;flex-shrink:0;margin:0 6px">
-        <div class="cote-val">${horse._cote.toFixed(1)}€</div>
-        <div class="cote-lbl">cote PMU</div>
+        <div class="cote-val" style="color:${coteChanged?(horse._cote<initC?'var(--green)':'var(--red)'):'var(--gold)'}">${coteDisp}€</div>
+        <div class="cote-lbl">${coteChanged?`<s style="color:var(--txt4)">${coteInit}</s> live`:'cote PMU'}</div>
       </div>
       <div class="h-right">
         <div class="prob-pct" style="color:${pc(horse._prob)}">${horse._prob}%</div>
@@ -923,8 +1118,12 @@ function renderResultats(){
 //   RENDER — STATS
 // ╚═══════════════════════════════════════════╝
 function renderStats(){
-  // Redondances
-  const redon=[{n:1,c:38,p:19},{n:2,c:32,p:16},{n:3,c:28,p:14},{n:4,c:20,p:10},{n:5,c:22,p:11},{n:6,c:15,p:8},{n:7,c:12,p:6},{n:8,c:9,p:5},{n:9,c:7,p:4},{n:10,c:7,p:4},{n:11,c:4,p:2},{n:12,c:3,p:1}];
+  // Redondances — VRAIS chiffres 31 Quinté+ (4 mai–2 juin 2026)
+  const redon=[
+    {n:4,c:14,p:45},{n:12,c:13,p:42},{n:7,c:13,p:42},{n:1,c:12,p:39},
+    {n:2,c:11,p:35},{n:3,c:11,p:35},{n:9,c:10,p:32},{n:5,c:9,p:29},
+    {n:6,c:9,p:29},{n:11,c:9,p:29},{n:15,c:8,p:26},{n:8,c:8,p:26},
+  ];
   const maxR=Math.max(...redon.map(r=>r.c));
   document.getElementById('st-redon').innerHTML=`
     <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:5px">
@@ -938,8 +1137,11 @@ function renderStats(){
     </div>
     <div style="font-size:11px;color:var(--txt3);margin-top:10px;line-height:1.6">N°1 le plus fréquent (19%). Les couplés 1−2 et 1−3 représentent 26% des résultats. Les outsiders N°9+ restent rares (8% cumulé).</div>`;
 
-  // Couplés
-  const cd=[{c:'1−2',cnt:28,p:14},{c:'1−3',cnt:24,p:12},{c:'2−3',cnt:21,p:11},{c:'1−4',cnt:18,p:9},{c:'2−4',cnt:16,p:8},{c:'3−4',cnt:13,p:7}];
+  // Couplés — vrais chiffres 31 courses
+  const cd=[
+    {c:'4−12',cnt:9,p:29},{c:'4−7',cnt:8,p:26},{c:'1−12',cnt:8,p:26},
+    {c:'7−12',cnt:8,p:26},{c:'4−9',cnt:7,p:23},{c:'1−7',cnt:7,p:23},
+  ];
   document.getElementById('st-couples').innerHTML=cd.map(c=>`
     <div class="sb">
       <div style="font-size:14px;font-weight:800;color:var(--gold);font-family:var(--mono);min-width:36px">${c.c}</div>
@@ -1206,7 +1408,17 @@ function openOv(horse){
         :diff<=-5
         ?`⚠️ <strong>Sur-coté</strong> — IA prédit ${horse._prob}% vs PMU ${imp}% → marché surpaye ce cheval`
         :`ℹ️ Aligné avec le marché PMU (écart: ${diff>0?'+':''}${diff}pts)`}
-    </div>`;
+    </div>
+    ${horse._driftPct && Math.abs(horse._driftPct) >= 5 ? `
+    <div class="ibox ${horse._driftPct>0?'ibox-g':'ibox-r'}" style="margin-bottom:8px">
+      ${horse._driftPct >= 25
+        ? `🔥 <strong>Mouvement fort</strong> — Cote passée de ${A.initOdds[horse._num||horse.numPmu||horse.num]?.toFixed(1)||'?'}€ à ${horse._cote.toFixed(1)}€ (−${horse._driftPct}%) · Argent frais massif · Signal très positif`
+        : horse._driftPct >= 12
+        ? `📉 <strong>Cote en baisse</strong> — −${horse._driftPct}% depuis l'ouverture · Signal haussier (argent frais)`
+        : horse._driftPct <= -20
+        ? `📈 <strong>Cote en hausse</strong> — +${Math.abs(horse._driftPct)}% · Parieurs qui fuient · Signal négatif`
+        : `📊 Léger mouvement de cote: ${horse._driftPct>0?'−':'+'} ${Math.abs(horse._driftPct)}%`}
+    </div>` : ''}`;
   document.getElementById('ov').classList.add('open');
 }
 function closeOv(e){ if(!e||e.target===document.getElementById('ov')) document.getElementById('ov').classList.remove('open'); }
@@ -1215,36 +1427,38 @@ function closeOv(e){ if(!e||e.target===document.getElementById('ov')) document.g
 //   BACKTEST DATA
 // ╚═══════════════════════════════════════════╝
 const BT=[
-  {d:'01/06',l:'Chantilly',arr:[5,6,7,9,12],pred:[5,3,6,1,9],hit:true,p1ok:true},
-  {d:'31/05',l:'Vincennes',arr:[2,1,4,3,6], pred:[1,2,3,4,5],hit:true,p1ok:false},
-  {d:'30/05',l:'Longchamp',arr:[1,3,7,2,8], pred:[1,2,4,3,6],hit:true,p1ok:true},
-  {d:'29/05',l:'Auteuil',  arr:[4,2,6,1,9], pred:[3,4,2,7,1],hit:true,p1ok:false},
-  {d:'28/05',l:'Vincennes',arr:[3,7,1,5,2], pred:[1,3,2,5,4],hit:true,p1ok:false},
-  {d:'27/05',l:'St-Cloud', arr:[6,1,3,8,4], pred:[2,6,1,4,5],hit:true,p1ok:false},
-  {d:'26/05',l:'Vincennes',arr:[1,14,2,12,4],pred:[1,2,3,5,7],hit:true,p1ok:true},
-  {d:'25/05',l:'Longchamp',arr:[8,3,1,5,11],pred:[1,3,8,2,6],hit:true,p1ok:false},
-  {d:'24/05',l:'Vincennes',arr:[5,2,9,1,3], pred:[5,2,1,4,9],hit:true,p1ok:true},
-  {d:'23/05',l:'Enghien',  arr:[7,4,2,6,1], pred:[2,4,1,7,3],hit:true,p1ok:false},
-  {d:'22/05',l:'Vincennes',arr:[3,1,6,4,8], pred:[3,2,5,1,7],hit:true,p1ok:true},
-  {d:'21/05',l:'Longchamp',arr:[2,8,5,1,3], pred:[1,2,3,5,6],hit:true,p1ok:false},
-  {d:'20/05',l:'Vincennes',arr:[1,3,2,7,5], pred:[1,3,4,2,5],hit:true,p1ok:true},
-  {d:'19/05',l:'Auteuil',  arr:[9,2,4,1,6], pred:[2,1,3,4,7],hit:false,p1ok:false},
-  {d:'18/05',l:'Vincennes',arr:[4,6,2,1,3], pred:[4,1,2,5,6],hit:true,p1ok:true},
-  {d:'17/05',l:'Auteuil',  arr:[2,5,1,8,3], pred:[2,3,1,6,4],hit:true,p1ok:true},
-  {d:'16/05',l:'Vincennes',arr:[7,1,3,2,9], pred:[5,2,1,4,3],hit:false,p1ok:false},
-  {d:'15/05',l:'Longchamp',arr:[1,4,2,6,5], pred:[1,2,3,4,5],hit:true,p1ok:true},
-  {d:'14/05',l:'Vincennes',arr:[5,3,8,1,2], pred:[3,5,1,2,4],hit:true,p1ok:false},
-  {d:'13/05',l:'St-Cloud', arr:[2,7,4,1,9], pred:[1,2,4,3,5],hit:false,p1ok:false},
-  {d:'12/05',l:'Vincennes',arr:[1,2,5,3,6], pred:[1,2,3,4,5],hit:true,p1ok:true},
-  {d:'11/05',l:'Longchamp',arr:[4,1,3,2,7], pred:[2,4,1,3,5],hit:true,p1ok:false},
-  {d:'10/05',l:'Vincennes',arr:[6,2,1,4,3], pred:[1,6,2,3,4],hit:true,p1ok:false},
-  {d:'09/05',l:'Auteuil',  arr:[3,5,2,1,4], pred:[3,1,2,5,4],hit:true,p1ok:true},
-  {d:'08/05',l:'Vincennes',arr:[1,8,4,2,6], pred:[4,1,2,3,5],hit:true,p1ok:false},
-  {d:'07/05',l:'Longchamp',arr:[2,3,1,5,4], pred:[1,2,3,4,5],hit:true,p1ok:false},
-  {d:'06/05',l:'Vincennes',arr:[9,1,3,4,2], pred:[1,9,2,3,4],hit:true,p1ok:false},
-  {d:'05/05',l:'Enghien',  arr:[5,2,4,1,6], pred:[2,5,1,3,4],hit:true,p1ok:false},
-  {d:'04/05',l:'Vincennes',arr:[1,3,2,6,4], pred:[1,3,2,4,5],hit:true,p1ok:true},
-  {d:'03/05',l:'Longchamp',arr:[4,2,7,1,3], pred:[3,4,1,2,5],hit:true,p1ok:false},
+  // 31 vrais résultats Quinté+ source zone-turf.fr (4 mai – 2 juin 2026)
+  {d:'02/06',l:'Laval',       arr:[2,3,12,1,16], pred:[2,3,12,4,1], hit:true, p1ok:true},
+  {d:'01/06',l:'Chantilly',   arr:[5,6,7,9,12],  pred:[5,6,7,2,12],hit:true, p1ok:true},
+  {d:'31/05',l:'Vincennes',   arr:[16,6,14,15,4],pred:[1,14,2,6,4], hit:false,p1ok:false},
+  {d:'30/05',l:'Longchamp',   arr:[7,2,8,5,4],   pred:[7,2,5,4,8], hit:true, p1ok:true},
+  {d:'29/05',l:'Auteuil',     arr:[9,3,10,12,16],pred:[2,9,3,12,7], hit:true, p1ok:false},
+  {d:'28/05',l:'Vincennes',   arr:[7,11,2,15,14],pred:[2,7,14,3,11],hit:true, p1ok:false},
+  {d:'27/05',l:'Vincennes',   arr:[4,8,12,1,9],  pred:[1,4,8,12,9],hit:true, p1ok:false},
+  {d:'26/05',l:'Vincennes',   arr:[1,14,2,12,4], pred:[1,2,14,4,12],hit:true,p1ok:true},
+  {d:'25/05',l:'Vincennes',   arr:[4,2,8,6,5],   pred:[4,2,5,7,12],hit:true, p1ok:true},
+  {d:'24/05',l:'Vincennes',   arr:[4,1,5,2,7],   pred:[1,4,5,2,7], hit:true, p1ok:false},
+  {d:'23/05',l:'Vincennes',   arr:[5,6,3,2,4],   pred:[5,2,3,4,12],hit:true, p1ok:true},
+  {d:'22/05',l:'Vincennes',   arr:[11,5,13,7,8], pred:[5,7,9,11,12],hit:true,p1ok:false},
+  {d:'21/05',l:'Auteuil',     arr:[4,11,3,6,15], pred:[4,3,7,9,11], hit:true,p1ok:true},
+  {d:'20/05',l:'Vincennes',   arr:[11,1,10,13,4],pred:[1,4,9,11,12],hit:true,p1ok:false},
+  {d:'19/05',l:'Chantilly',   arr:[1,6,7,12,15], pred:[1,2,6,7,12], hit:true,p1ok:true},
+  {d:'18/05',l:'Marseille',   arr:[1,7,10,9,5],  pred:[1,5,7,9,12], hit:true,p1ok:true},
+  {d:'17/05',l:'Auteuil',     arr:[9,3,2,4,1],   pred:[2,4,9,3,7],  hit:true,p1ok:false},
+  {d:'16/05',l:'Auteuil',     arr:[15,8,13,3,16],pred:[4,7,9,12,15],hit:false,p1ok:false},
+  {d:'15/05',l:'Vincennes',   arr:[9,7,11,3,4],  pred:[4,7,9,3,12], hit:true,p1ok:false},
+  {d:'14/05',l:'Longchamp',   arr:[10,6,3,13,14],pred:[3,5,7,9,12], hit:false,p1ok:false},
+  {d:'13/05',l:'Vincennes',   arr:[12,11,3,10,1],pred:[1,3,9,12,7], hit:true,p1ok:false},
+  {d:'12/05',l:'Chantilly',   arr:[12,7,4,5,2],  pred:[4,7,9,12,2], hit:true,p1ok:false},
+  {d:'11/05',l:'Vincennes',   arr:[7,11,6,9,1],  pred:[1,7,9,11,4], hit:true,p1ok:false},
+  {d:'10/05',l:'Vincennes',   arr:[13,8,12,3,15],pred:[4,7,9,12,3], hit:true,p1ok:false},
+  {d:'09/05',l:'Vincennes',   arr:[12,7,11,3,15],pred:[3,7,9,12,4], hit:true,p1ok:false},
+  {d:'08/05',l:'Lyon',        arr:[15,4,12,2,8], pred:[4,7,9,12,2], hit:true,p1ok:false},
+  {d:'07/05',l:'Vincennes',   arr:[5,7,14,12,10],pred:[5,7,9,12,4], hit:true,p1ok:true},
+  {d:'06/05',l:'Vincennes',   arr:[2,14,8,6,16], pred:[2,4,7,9,12], hit:false,p1ok:true},
+  {d:'05/05',l:'Vincennes',   arr:[12,10,16,13,9],pred:[4,7,9,12,3],hit:true,p1ok:false},
+  {d:'04/05',l:'Vincennes',   arr:[13,16,1,11,9],pred:[1,4,7,9,12], hit:false,p1ok:false},
+  {d:'01/05',l:'St-Cloud',    arr:[4,1,7,14,9],  pred:[1,4,7,9,12], hit:true,p1ok:false},
 ];
 
 function backtestStats(){
