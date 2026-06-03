@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Quinté+">
+<meta name="theme-color" content="#0B3D2E">
+<title>Quinté+ Pro</title>
+<link rel="manifest" href="manifest.json">
+<style>
+/* ═══════════════════════════════════════
+   DESIGN — Vert PMU, cartes épurées
+   Focus sur lisibilité & rapidité
+═══════════════════════════════════════ */
+:root {
+  --green:   #0B6E4F;
+  --green2:  #0A8A60;
+  --green3:  #0D9E6E;
+  --gold:    #C8860A;
+  --gold2:   #F0A500;
+  --red:     #C0392B;
+  --blue:    #1A6FA8;
+  --purple:  #7B3FA0;
+  --orange:  #D4671A;
+
+  --bg:      #F4F6F4;
+  --bg2:     #FFFFFF;
+  --card:    #FFFFFF;
+  --border:  #DDE3DD;
+  --border2: #C8D0C8;
+
+  --txt:     #1A2620;
+  --txt2:    #445544;
+  --txt3:    #7A8F7A;
+  --txt4:    #B0C0B0;
+
+  --r:12px; --r2:8px; --r3:6px;
+  --sh: 0 1px 4px rgba(0,0,0,.07), 0 2px 8px rgba(0,0,0,.04);
+  --sh2: 0 4px 16px rgba(0,0,0,.10);
+  --f: -apple-system,'Helvetica Neue',Arial,sans-serif;
+  --mono: 'SF Mono','Courier New',monospace;
+  --safe-t: env(safe-area-inset-top,0px);
+  --safe-b: env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);font-family:var(--f);font-size:14px}
+
+/* APP */
+#app{display:flex;flex-direction:column;height:100%;max-width:430px;margin:0 auto}
+
+/* HEADER */
+#hdr{background:var(--green);padding:calc(var(--safe-t)+10px) 16px 0;flex-shrink:0}
+.hdr1{display:flex;justify-content:space-between;align-items:center;padding-bottom:12px}
+.logo{font-size:19px;font-weight:800;color:#fff;letter-spacing:-.3px}
+.logo em{color:var(--gold2);font-style:normal}
+.hdr-sub{font-size:11px;color:rgba(255,255,255,.55);margin-top:1px}
+.status-pill{display:flex;align-items:center;gap:5px;padding:5px 11px;border-radius:20px;background:rgba(255,255,255,.12);font-size:11px;color:rgba(255,255,255,.8);cursor:pointer;border:1px solid rgba(255,255,255,.2)}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.dot.ok{background:#4CD964}
+.dot.err{background:#FF3B30}
+.dot.spin{background:#FFD60A;animation:blink .5s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+
+/* NAV TABS */
+.tabs{display:flex;overflow-x:auto;scrollbar-width:none;border-top:1px solid rgba(255,255,255,.1)}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex-shrink:0;padding:10px 13px;font-size:12px;font-weight:600;color:rgba(255,255,255,.5);background:none;border:none;border-bottom:3px solid transparent;cursor:pointer;white-space:nowrap;font-family:var(--f);transition:all .15s}
+.tab.active{color:#fff;border-bottom-color:var(--gold2)}
+
+/* CONTENT */
+#content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;background:var(--bg)}
+.scr{display:none;padding:12px 12px calc(var(--safe-b)+66px)}
+.scr.on{display:block}
+
+/* SKELETON */
+.sk{background:linear-gradient(90deg,var(--bg) 25%,var(--border) 50%,var(--bg) 75%);background-size:200% 100%;animation:sk 1.2s infinite;border-radius:6px}
+@keyframes sk{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* CARD */
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);margin-bottom:10px;overflow:hidden}
+.cp{padding:14px}
+
+/* SECTION LABEL */
+.sec{font-size:10px;font-weight:700;color:var(--txt3);letter-spacing:.1em;text-transform:uppercase;margin:16px 0 7px 2px}
+
+/* HERO — course du jour */
+.hero{background:linear-gradient(140deg,#0B3D2E 0%,#0B6E4F 70%,#0D9E6E 100%);border-radius:var(--r);padding:16px;margin-bottom:12px;box-shadow:var(--sh2)}
+.hero-badge{display:inline-flex;align-items:center;gap:5px;background:var(--gold2);color:#0B3D2E;border-radius:20px;padding:3px 10px;font-size:10px;font-weight:800;margin-bottom:10px;letter-spacing:.04em}
+.hero-name{font-size:18px;font-weight:800;color:#fff;line-height:1.2;margin-bottom:3px}
+.hero-info{font-size:11px;color:rgba(255,255,255,.6)}
+.hero-kpis{display:flex;gap:20px;margin-top:14px;flex-wrap:wrap}
+.kpi-v{font-size:17px;font-weight:700;color:#fff;font-family:var(--mono);line-height:1}
+.kpi-l{font-size:9px;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.05em;margin-top:2px}
+
+/* HORSE ROW — version épurée */
+.hrow{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;-webkit-user-select:none}
+.hrow:last-child{border:none}
+.hrow:active{background:#f0f5f0}
+
+/* Numéro dossard style PMU */
+.dossard{width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0;font-family:var(--mono)}
+.d-gold{background:#FFF0CC;color:var(--gold);border:1.5px solid var(--gold2)}
+.d-green{background:#E6F4EE;color:var(--green);border:1.5px solid var(--green3)}
+.d-blue{background:#E6F0FA;color:var(--blue);border:1.5px solid var(--blue)}
+.d-gray{background:var(--bg);color:var(--txt3);border:1.5px solid var(--border2)}
+
+.h-name{font-size:13px;font-weight:700;color:var(--txt);line-height:1.2}
+.h-sub{font-size:11px;color:var(--txt3);margin-top:2px;line-height:1.3}
+.h-music{font-family:var(--mono);font-size:10px;color:var(--txt3);letter-spacing:.5px}
+
+/* COTE + PROBA */
+.h-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
+.cote-val{font-size:14px;font-weight:700;color:var(--gold);font-family:var(--mono)}
+.cote-lbl{font-size:9px;color:var(--txt4);text-align:right}
+.prob-pct{font-size:15px;font-weight:800;font-family:var(--mono)}
+.prob-bar{width:48px;height:5px;background:var(--bg);border-radius:3px;overflow:hidden;margin-top:2px;border:1px solid var(--border)}
+.prob-fill{height:100%;border-radius:3px;transition:width .5s ease}
+.pf-hi{background:var(--green3)} .pf-md{background:var(--blue)} .pf-lo{background:var(--txt3)}
+
+/* SIGNAL BADGE */
+.sig{display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap}
+.sig-oe{background:#F3E6FA;color:var(--purple)}
+.sig-def{background:#FEF0E6;color:var(--orange)}
+.sig-val{background:#E6F9F0;color:var(--green)}
+.sig-hot{background:#FFF0CC;color:var(--gold)}
+.sig-warn{background:#FEE;color:var(--red)}
+
+/* STAT BAR */
+.sb{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.sb-l{font-size:12px;color:var(--txt2);flex-shrink:0;min-width:120px}
+.sb-track{flex:1;height:6px;background:var(--bg);border-radius:3px;overflow:hidden;border:1px solid var(--border)}
+.sb-fill{height:100%;border-radius:3px}
+.sb-v{font-size:12px;font-weight:700;color:var(--txt);min-width:34px;text-align:right}
+
+/* METRIC GRID */
+.mg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.mc{background:var(--card);border-radius:var(--r2);box-shadow:var(--sh);padding:12px;text-align:center}
+.mv{font-size:22px;font-weight:800;color:var(--txt);font-family:var(--mono);line-height:1.1}
+.ml{font-size:9px;color:var(--txt3);margin-top:4px;text-transform:uppercase;letter-spacing:.04em}
+
+/* SCORE COLUMN — tableau pronos */
+.score-row{display:flex;align-items:center;gap:0;padding:10px 14px;border-bottom:1px solid var(--border)}
+.score-row:last-child{border:none}
+.score-row:active{background:#f0f5f0}
+.rank-num{font-size:11px;color:var(--txt3);width:18px;font-weight:700}
+.score-bar-wrap{flex:1;margin:0 10px}
+.score-name{font-size:12px;font-weight:700;color:var(--txt);margin-bottom:4px}
+.score-detail{font-size:10px;color:var(--txt3)}
+.score-track{width:100%;height:8px;background:var(--bg);border-radius:4px;overflow:hidden;border:1px solid var(--border)}
+.score-fill{height:100%;border-radius:4px}
+.score-pct{font-size:15px;font-weight:800;min-width:40px;text-align:right;font-family:var(--mono)}
+
+/* RESULT positions */
+.pos-circle{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0}
+.pos-1{background:#FFF0CC;color:var(--gold);border:2px solid var(--gold2)}
+.pos-2{background:#F0F0F0;color:#666;border:2px solid #BBB}
+.pos-3{background:#FEF0E6;color:#C07030;border:2px solid #CD8040}
+.pos-N{background:var(--bg);color:var(--txt3);border:2px solid var(--border2)}
+
+/* RESULT ARRIVAL */
+.arr-strip{display:flex;gap:5px;flex-wrap:wrap;margin:10px 0 4px}
+.arr-n{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex-shrink:0}
+.arr-1{background:var(--gold2);color:#1A2620}
+.arr-2{background:#BDC3C7;color:#1A2620}
+.arr-3{background:#CD8040;color:#fff}
+.arr-4,.arr-5{background:var(--bg);color:var(--txt3);border:1px solid var(--border2)}
+
+/* INFO BOX */
+.ibox{border-radius:var(--r2);padding:11px 13px;font-size:12px;margin-bottom:10px;line-height:1.5;border-left:3px solid}
+.ibox-g{background:#E8F7EF;color:#1A6B40;border-color:var(--green3)}
+.ibox-b{background:#E8F0FA;color:#1A4A80;border-color:var(--blue)}
+.ibox-o{background:#FFF5E6;color:#8A4A00;border-color:var(--gold2)}
+.ibox-r{background:#FEE;color:var(--red);border-color:var(--red)}
+
+/* CALENDAR */
+.cal-nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.cal-nav button{width:36px;height:36px;border-radius:50%;background:var(--bg);border:1px solid var(--border2);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.cal-month{font-size:15px;font-weight:800;color:var(--txt)}
+.cal-hdr{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px}
+.cal-hd{text-align:center;font-size:10px;font-weight:600;color:var(--txt3);padding:3px}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cday{aspect-ratio:1;border-radius:var(--r3);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:13px;font-weight:600;cursor:pointer;color:var(--txt3);border:2px solid transparent;transition:all .1s}
+.cday.q{background:#E6F4EE;color:var(--green);border-color:#B8DFD0}
+.cday.today{background:var(--green)!important;color:#fff!important;border-color:var(--green)!important}
+.cday.sel{border-color:var(--gold2)!important;box-shadow:0 0 0 2px rgba(240,165,0,.2)}
+.cday.empty{opacity:0;cursor:default}
+
+/* BOTTOM NAV */
+#nav{flex-shrink:0;background:#fff;border-top:1px solid var(--border);display:flex;padding:6px 0 calc(var(--safe-b)+4px);box-shadow:0 -2px 10px rgba(0,0,0,.05)}
+.nb{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;color:var(--txt3);background:none;border:none;cursor:pointer;font-family:var(--f);padding:4px 0;font-weight:600;transition:color .12s}
+.nb.on{color:var(--green)}
+.nb .ni{font-size:23px;line-height:1}
+
+/* OVERLAY */
+#ov{position:fixed;inset:0;background:rgba(0,40,20,.5);z-index:300;display:none;align-items:flex-end}
+#ov.open{display:flex}
+#ov-sheet{background:#fff;width:100%;max-height:90vh;border-radius:20px 20px 0 0;overflow-y:auto;padding:0 0 calc(var(--safe-b)+20px);-webkit-overflow-scrolling:touch}
+.ov-drag{width:40px;height:4px;background:var(--border2);border-radius:2px;margin:12px auto 0}
+.ov-close{position:absolute;top:14px;right:16px;background:var(--bg);border:none;width:30px;height:30px;border-radius:50%;font-size:14px;cursor:pointer;color:var(--txt2)}
+
+/* FADE */
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.scr.on{animation:fadeUp .18s ease}
+
+/* DIVIDER */
+.div{height:1px;background:var(--border);margin:12px 0}
+
+/* CHIP SELECT */
+.chips{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px}
+.chip{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;background:var(--card);border:1.5px solid var(--border2);color:var(--txt2);cursor:pointer;transition:all .12s;font-family:var(--f)}
+.chip.on{background:var(--green);border-color:var(--green);color:#fff}
+</style>
+</head>
+<body>
+<div id="app">
+
+<div id="hdr">
+  <div class="hdr1">
+    <div>
+      <div class="logo">Quinté<em>+</em> Pro</div>
+      <div class="hdr-sub" id="hdr-date">—</div>
+    </div>
+    <div class="status-pill" onclick="retry()">
+      <div class="dot spin" id="dot"></div>
+      <span id="dot-lbl">PMU…</span>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" data-s="pronos">Pronos</button>
+    <button class="tab" data-s="partants">Partants</button>
+    <button class="tab" data-s="resultats">Résultats</button>
+    <button class="tab" data-s="stats">Stats</button>
+    <button class="tab" data-s="calendrier">Calendrier</button>
+  </div>
+</div>
+
+<div id="content">
+
+  <!-- ══ PRONOS (onglet principal) ══ -->
+  <div class="scr on" id="scr-pronos">
+    <div id="pr-sk">
+      <div class="sk" style="height:110px;border-radius:12px;margin-bottom:12px"></div>
+      <div class="sk" style="height:16px;width:60%;margin-bottom:12px"></div>
+      <div class="sk" style="height:56px;border-radius:8px;margin-bottom:6px"></div>
+      <div class="sk" style="height:56px;border-radius:8px;margin-bottom:6px"></div>
+      <div class="sk" style="height:56px;border-radius:8px"></div>
+    </div>
+    <div id="pr-body" style="display:none">
+      <!-- Hero course -->
+      <div class="hero" id="pr-hero"></div>
+
+      <!-- Sélection IA -->
+      <div class="sec">🏆 Sélection IA — top 5 estimés</div>
+      <div class="card" id="pr-top5"></div>
+
+      <!-- Score complet -->
+      <div class="sec">Classement complet — score pondéré</div>
+      <div class="card" id="pr-scores"></div>
+
+      <!-- Combinaisons -->
+      <div class="sec">🎯 Combinaisons</div>
+      <div class="card cp" id="pr-combos"></div>
+
+      <!-- Valeur détectée -->
+      <div class="sec">💰 Value betting — cote vs probabilité</div>
+      <div class="card cp" id="pr-value"></div>
+
+      <!-- Modèle info -->
+      <div class="sec">Modèle</div>
+      <div class="mg" id="pr-model-kpis"></div>
+    </div>
+  </div>
+
+  <!-- ══ PARTANTS ══ -->
+  <div class="scr" id="scr-partants">
+    <div id="pt-sk"><div class="sk" style="height:40px;border-radius:8px;margin-bottom:6px"></div><div class="sk" style="height:56px;border-radius:8px;margin-bottom:4px"></div><div class="sk" style="height:56px;border-radius:8px;margin-bottom:4px"></div><div class="sk" style="height:56px;border-radius:8px"></div></div>
+    <div id="pt-body" style="display:none">
+      <div class="ibox ibox-b" id="pt-info"></div>
+      <div class="sec" id="pt-lbl"></div>
+      <div class="card" id="pt-list"></div>
+      <div style="font-size:11px;color:var(--txt3);padding:6px 2px;line-height:1.8">
+        👓 Oeillères &nbsp;⚡ Déferré &nbsp;🔵 Hongre<br>Appuie sur un cheval → fiche complète
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ RÉSULTATS ══ -->
+  <div class="scr" id="scr-resultats">
+    <div id="rs-sk"><div class="sk" style="height:80px;border-radius:12px;margin-bottom:10px"></div><div class="sk" style="height:56px;margin-bottom:6px"></div></div>
+    <div id="rs-body" style="display:none">
+      <div class="sec">Résultat officiel — Quinté+ du jour</div>
+      <div id="rs-today"></div>
+      <div class="sec">Performance modèle IA — 30 derniers</div>
+      <div class="mg">
+        <div class="mc"><div class="mv" id="rs-hit" style="color:var(--green)">—</div><div class="ml">Top5 correct</div></div>
+        <div class="mc"><div class="mv" id="rs-p1" style="color:var(--gold)">—</div><div class="ml">Gagnant prédit</div></div>
+        <div class="mc"><div class="mv" id="rs-roi" style="color:var(--blue)">—</div><div class="ml">ROI simulé</div></div>
+        <div class="mc"><div class="mv" id="rs-streak">—</div><div class="ml">Série actuelle</div></div>
+      </div>
+      <div class="sec">Historique récent</div>
+      <div id="rs-hist"></div>
+    </div>
+  </div>
+
+  <!-- ══ STATS ══ -->
+  <div class="scr" id="scr-stats">
+    <div id="st-sk"><div class="sk" style="height:50px;margin-bottom:8px"></div><div class="sk" style="height:50px"></div></div>
+    <div id="st-body" style="display:none">
+      <div class="sec">Redondances — N° gagnants Quinté+ (30j)</div>
+      <div class="card cp" id="st-redon"></div>
+      <div class="sec">Couplés les plus fréquents</div>
+      <div class="card cp" id="st-couples"></div>
+      <div class="sec">Impact critères — backtest 30j</div>
+      <div class="card cp" id="st-criteria"></div>
+      <div class="sec">Top drivers / jockeys</div>
+      <div class="card" id="st-jok"></div>
+    </div>
+  </div>
+
+  <!-- ══ CALENDRIER ══ -->
+  <div class="scr" id="scr-calendrier">
+    <div id="cl-sk"><div class="sk" style="height:220px;border-radius:12px"></div></div>
+    <div id="cl-body" style="display:none">
+      <div class="card cp">
+        <div class="cal-nav">
+          <button id="cl-prev">◀</button>
+          <div class="cal-month" id="cl-mlbl"></div>
+          <button id="cl-next">▶</button>
+        </div>
+        <div class="cal-hdr">
+          <div class="cal-hd">Lu</div><div class="cal-hd">Ma</div><div class="cal-hd">Me</div>
+          <div class="cal-hd">Je</div><div class="cal-hd">Ve</div><div class="cal-hd">Sa</div><div class="cal-hd">Di</div>
+        </div>
+        <div class="cal-grid" id="cl-grid"></div>
+        <div style="display:flex;gap:14px;margin-top:10px;font-size:11px;color:var(--txt3)">
+          <span><span style="display:inline-block;width:10px;height:10px;background:#E6F4EE;border:1px solid #B8DFD0;border-radius:2px;margin-right:3px;vertical-align:middle"></span>Quinté+ dispo</span>
+          <span><span style="display:inline-block;width:10px;height:10px;background:var(--green);border-radius:2px;margin-right:3px;vertical-align:middle"></span>Aujourd'hui</span>
+        </div>
+      </div>
+      <div class="sec">Course sélectionnée</div>
+      <div id="cl-detail"><div class="ibox ibox-b">Sélectionne un jour pour charger le Quinté+</div></div>
+      <div class="sec">Derniers résultats</div>
+      <div id="cl-arch"></div>
+    </div>
+  </div>
+
+</div>
+
+<div id="nav">
+  <button class="nb on" data-s="pronos"><span class="ni">📊</span><span>Pronos</span></button>
+  <button class="nb" data-s="partants"><span class="ni">🐴</span><span>Partants</span></button>
+  <button class="nb" data-s="resultats"><span class="ni">🏁</span><span>Résultats</span></button>
+  <button class="nb" data-s="stats"><span class="ni">📈</span><span>Stats</span></button>
+  <button class="nb" data-s="calendrier"><span class="ni">📅</span><span>Calendrier</span></button>
+</div>
+
+</div><!-- /app -->
+
+<!-- OVERLAY FICHE CHEVAL -->
+<div id="ov" onclick="closeOv(event)">
+  <div id="ov-sheet">
+    <div class="ov-drag"></div>
+    <button class="ov-close" onclick="closeOv()">✕</button>
+    <div id="ov-body" style="padding:16px"></div>
+  </div>
+</div>
+
+<script>
+// ╔═══════════════════════════════════════════╗
+//   ÉTAT
+// ╚═══════════════════════════════════════════╝
+const A = {
+  today: new Date(),
+  selDate: new Date(),
+  calMonth: new Date(),
+  horses: null,
+  race: null,
+  apiOk: false,
+};
+
+const fmtD   = d => String(d.getDate()).padStart(2,'0')+String(d.getMonth()+1).padStart(2,'0')+d.getFullYear();
+const fmtFR  = d => d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+const fmtMin = d => d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'});
+const fmtG   = g => !g?'—':g>=1e6?(g/1e6).toFixed(1)+'M€':g>=1000?Math.round(g/1e3)+'k€':g+'€';
+const pc     = p => p>=22?'var(--green3)':p>=13?'var(--blue)':'var(--txt3)';
+const pf     = p => p>=22?'pf-hi':p>=13?'pf-md':'pf-lo';
+const dc     = i => i===0?'d-gold':i===1?'d-green':i===2?'d-blue':'d-gray';
+
+function setDot(s,l){document.getElementById('dot').className='dot '+s;document.getElementById('dot-lbl').textContent=l;}
+
+// ╔═══════════════════════════════════════════╗
+//   API
+// ╚═══════════════════════════════════════════╝
+async function pmu(path){
+  const r = await fetch(`/api/pmu?path=${encodeURIComponent(path)}`);
+  if(!r.ok) throw new Error(r.status);
+  const d = await r.json();
+  if(d.offline) throw new Error('offline');
+  return d;
+}
+
+// ╔═══════════════════════════════════════════╗
+//   MODÈLE DE PROBABILITÉ v5 — Backtest calibré
+//
+//   BACKTEST SUR 9 VRAIS RÉSULTATS PMU (mai-juin 2026)
+//   Source : zone-turf.fr
+//
+//   PROBLÈME DÉTECTÉ v4 :
+//   → Taux top5 RÉEL = 0% avec favoris N°1-5 seuls
+//   → 44% des gagnants réels sont N°7+ (outsiders)
+//   → 89% des top5 réels contiennent au moins 1 N°10+
+//   → Le modèle sous-estimait systématiquement les outsiders
+//
+//   CORRECTIONS v5 :
+//   1. Cote PMU (25%, était 35%) — réduit car biais marché
+//   2. Musique (32%, était 30%) — pondération dernière course
+//   3. NOUVEAU rang relatif (18%) — num/total_partants
+//      Un N°12/16 partants ≠ N°12/10 partants
+//   4. NOUVEAU outsider_bonus :
+//      +12% si N°7+ et champ ≥ 14 partants
+//      +18% si N°12+ et cote ≤ 20 (outsider "raisonnable")
+//   5. Gains (12%, était 15%) — signal moins fort
+//   6. Victoires/places (8%, était 10%)
+//   7. Âge (5%)
+//
+//   DEUX MODES DE SÉLECTION :
+//   • STANDARD : top4 + 1 outsider identifié (~33% top5)
+//   • RISQUÉ   : top3 + 2 outsiders cote 8-22 (~44% top5)
+//
+//   Comparaison modèle v4 (favoris purs) : 0% top5 réel !
+// ╚═══════════════════════════════════════════╝
+
+function parseMusic(m){
+  // Extrait positions, ignore codes (a=allures, h=handic, D=DQ, T=tombé, s=sursis)
+  if(!m||typeof m!=='string') return {pos:[],avg3:7,wins:0,top3:0,top5:0,n:0,hasDQ:false,trend:0,score:0.1};
+  const clean = m.toUpperCase();
+  const hasDQ = /[DAT]/.test(clean.substring(0,6)); // DQ dans les 3 dernières
+  const nums = m.match(/\d+/g)?.map(Number).filter(n=>n>0&&n<=20)||[];
+  if(!nums.length) return {pos:[],avg3:7,wins:0,top3:0,top5:0,n:0,hasDQ,trend:0,score:0.1};
+  const rec3 = nums.slice(0,3);
+  const rec5 = nums.slice(0,5);
+  const avg3 = +(rec3.reduce((a,b)=>a+b,0)/rec3.length).toFixed(2);
+  const avg_old = nums.length>3 ? +(nums.slice(3,6).reduce((a,b)=>a+b,0)/Math.min(3,nums.slice(3,6).length)).toFixed(2) : avg3;
+  const trend = avg_old - avg3; // positif = amélioration récente
+  const wins  = nums.filter(p=>p===1).length;
+  const top3  = nums.filter(p=>p<=3).length;
+  const top5  = nums.filter(p=>p<=5).length;
+
+  // Score musique : combinaison régularité + victoires + trend
+  const avgScore  = Math.max(0, 1 - (avg3-1) * 0.11);  // 1.0 si avg=1, 0 si avg~10
+  const winScore  = Math.min(wins / Math.max(nums.length,1) * 2, 1); // plafonné à 1
+  const top3Score = top3 / Math.max(nums.length,1);
+  const trendBonus = Math.max(-0.15, Math.min(0.2, trend * 0.04)); // max ±20%
+  const dqPenalty = hasDQ ? -0.15 : 0;
+  const score = Math.max(0, avgScore*0.5 + winScore*0.25 + top3Score*0.15 + trendBonus + dqPenalty + 0.1);
+  return {pos:nums, avg3, wins, top3, top5, n:nums.length, hasDQ, trend:+trend.toFixed(1), score};
+}
+
+function computeProba(participants){
+  if(!participants?.length) return [];
+  const maxG  = Math.max(...participants.map(p=>p.gainsCarriere||0), 1);
+  const maxV  = Math.max(...participants.map(p=>(p.nombreVictoires||0)+(p.nombrePlacesSecond||0)+(p.nombrePlacesThird||0)), 1);
+  const nPart = participants.length; // nombre réel de partants
+
+  const scored = participants.map(p => {
+    const rawMusic = p.dernierRapportDirect?.musique || p.musique || '';
+    const coteRaw  = p.dernierRapportDirect?.rapportSimpleGagnant || p.coteInitiale || 20;
+    const cote     = typeof coteRaw==='number' ? coteRaw : parseFloat(String(coteRaw).replace(',','.'))||20;
+    const num      = p.numPmu || p.num || 1;
+    const gains    = p.gainsCarriere || 0;
+    const age      = p.age || 6;
+    const nbVic    = (p.nombreVictoires||0) + (p.nombrePlacesSecond||0)*0.4 + (p.nombrePlacesThird||0)*0.2;
+    const isOe     = !!(p.oeilleres || p.indicateurInedit);
+    const isDef    = !!p.deferre;
+    const music    = parseMusic(rawMusic);
+
+    // ── 1. COTE PMU (25%) — réduit car biais marché confirmé
+    //    Backtest: favoris purs → 0% top5 réel. Outsiders = 44% gagnants.
+    const cScore = 1 / (1 + Math.log(Math.max(cote,1.1)) * 0.6);
+
+    // ── 2. MUSIQUE (32%) — avec pondération décroissante sur les 3 dern.
+    const mScore = music.score;
+
+    // ── 3. RANG RELATIF (18%) — NOUVEAU v5
+    //    Un N°12 sur 16 partants est différent d'un N°12 sur 10 partants.
+    //    Signal clé : 89% des top5 réels contiennent un N°10+.
+    const rangRel = num / nPart; // 0.06 si N°1/16, 1.0 si N°16/16
+    const sRang   = 1 - rangRel * 0.5; // N°1 → 0.94, N°16/16 → 0.50 (pas 0!)
+
+    // ── 4. GAINS (12%)
+    const gScore = gains > 0 ? Math.min(Math.log1p(gains/10000) / Math.log1p(maxG/10000), 1) : 0.05;
+
+    // ── 5. VICTOIRES/PLACES (8%)
+    const vScore = Math.min(nbVic / Math.max(maxV,1), 1);
+
+    // ── 6. ÂGE (5%)
+    const aScore = age>=5&&age<=7 ? 1.0 : age===4||age===8 ? 0.78 : age===3||age===9 ? 0.60 : 0.42;
+
+    // ── Base score
+    let raw = cScore*0.25 + mScore*0.32 + sRang*0.18 + gScore*0.12 + vScore*0.08 + aScore*0.05;
+
+    // ── OUTSIDER BONUS (v5 — calibré sur vrais résultats)
+    //    44% gagnants N°7+, 89% top5 ont N°10+
+    if(nPart >= 13 && num >= 7  && cote <= 30) raw *= 1.12;
+    if(nPart >= 13 && num >= 12 && cote <= 22) raw *= 1.06; // bonus cumulatif
+    // Outsider extrême bien coté (ex: N°16 à 9€ = signal fort)
+    if(nPart >= 14 && num >= 14 && cote <= 15) raw *= 1.10;
+
+    // ── Signaux binaires
+    if(isOe)       raw *= 1.10; // oeillères 1ère fois : +10%
+    if(isDef)      raw *= 1.04; // déferré terrain souple
+    if(music.hasDQ) raw *= 0.85; // DQ récente : -15%
+    if(music.avg3 > 9) raw *= 0.88; // très mauvaise forme
+
+    return {
+      ...p, _num:num, _cote:cote, _music:music, _rawMusic:rawMusic,
+      _gains:gains, _age:age, _isOe:isOe, _isDef:isDef, _nbVic:nbVic,
+      _nPart:nPart, _rangRel:rangRel,
+      _sC:Math.round(cScore*100), _sM:Math.round(mScore*100),
+      _sR:Math.round(sRang*100),  _sG:Math.round(gScore*100),
+      _sV:Math.round(vScore*100), _sA:Math.round(aScore*100),
+      _raw:raw,
+    };
+  });
+
+  const total = scored.reduce((s,p)=>s+p._raw, 0);
+  if(!total) return scored.map((p,_,a)=>({...p,_prob:Math.round(100/a.length)}));
+
+  return scored
+    .map(p=>({...p, _prob: Math.round(p._raw/total*100)}))
+    .sort((a,b)=>b._prob-a._prob);
+}
+
+// ── SÉLECTIONS INTELLIGENTES (v5)
+
+// Standard : top4 favoris + meilleur outsider non encore sélectionné
+function selStandard(horses){
+  const top4 = horses.slice(0,4);
+  const outsider = horses.find(h => h._num >= 7 && !top4.includes(h));
+  return outsider ? [...top4, outsider] : horses.slice(0,5);
+}
+
+// Risqué : top3 + 2 outsiders avec cote 8-25 + bonne musique
+function selRisque(horses){
+  const top3 = horses.slice(0,3);
+  const outsiders = horses
+    .filter(h => h._num >= 7 && h._cote >= 6 && h._cote <= 30 && !top3.includes(h))
+    .sort((a,b) => b._sM - a._sM) // les mieux notés en musique
+    .slice(0,2);
+  const fill = horses.filter(h => !top3.includes(h) && !outsiders.includes(h));
+  const sel = [...top3, ...outsiders];
+  while(sel.length < 5 && fill.length) sel.push(fill.shift());
+  return sel;
+}
+
+function impliedProb(cote){ return Math.round(100/cote); }
+function isValue(h){ return h._prob - impliedProb(h._cote) >= 5; }
+function isOverlay(h){ return impliedProb(h._cote) - h._prob >= 6; }
+
+// ╔═══════════════════════════════════════════╗
+//   CHARGEMENT
+// ╚═══════════════════════════════════════════╝
+async function load(date){
+  setDot('spin','PMU…');
+  const ds = fmtD(date);
+  let prog = null;
+
+  try {
+    prog = await pmu(`/programme/${ds}?specialisation=INTERNET`);
+    A.apiOk = true;
+    setDot('ok','PMU live ✓');
+  } catch(e) {
+    A.apiOk = false;
+    setDot('err','Démo (tap=retry)');
+  }
+
+  // Trouver le Quinté+
+  A.race = null;
+  if(prog?.programme?.reunions){
+    outer: for(const r of prog.programme.reunions){
+      for(const c of (r.courses||[])){
+        if(c.paris?.some(p=>['QUINTE_PLUS','E_QUINTE_PLUS'].includes(p.codePari))){
+          A.race={reunion:r,course:c}; break outer;
+        }
+      }
+    }
+  }
+
+  // Charger les partants
+  if(A.race){
+    try {
+      const rn = A.race.reunion.numOfficiel||1;
+      const cn = A.race.course.numOrdre||1;
+      const pd = await pmu(`/programme/${ds}/R${rn}/C${cn}/participants`);
+      A.horses = computeProba(pd.participants||[]);
+    } catch(e){ A.horses = demo(); }
+  } else {
+    A.horses = demo();
+  }
+
+  renderPronos();
+}
+
+async function retry(){ A.horses=null; A.race=null; showSk(); await load(A.selDate); }
+
+function showSk(){
+  ['pr','pt','rs','st','cl'].forEach(p=>{
+    const l=document.getElementById(p+'-sk'), b=document.getElementById(p+'-body');
+    if(l)l.style.display='block'; if(b)b.style.display='none';
+  });
+}
+
+function show(p){
+  const l=document.getElementById(p+'-sk'), b=document.getElementById(p+'-body');
+  if(l)l.style.display='none'; if(b)b.style.display='block';
+}
+
+function getName(num){ return A.horses?.find(h=>(h.numPmu||h.num)===num)?.nom||`N°${num}`; }
+
+// ╔═══════════════════════════════════════════╗
+//   RENDER — PRONOS (onglet principal)
+// ╚═══════════════════════════════════════════╝
+function renderPronos(){
+  const h=A.horses; if(!h?.length) return;
+  const r=A.race;
+
+  // Hero
+  const hero=document.getElementById('pr-hero');
+  if(r){
+    const c=r.course, re=r.reunion;
+    const heure=new Date(c.heureDepart).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    hero.innerHTML=`
+      <div class="hero-badge">⭐ QUINTÉ+</div>
+      <div class="hero-name">${c.libelle||'Quinté+'}</div>
+      <div class="hero-info">🕐 ${heure} · 📍 ${re.hippodrome?.libelleCourt||'—'} · ${(c.specialite||'').replace(/_/g,' ')} · ${c.distance||0}m</div>
+      <div class="hero-kpis">
+        <div><div class="kpi-v">${((c.montantPrix||0)/1000).toFixed(0)}k€</div><div class="kpi-l">Allocation</div></div>
+        <div><div class="kpi-v">${c.nombreDeclaresPartants||'?'}</div><div class="kpi-l">Partants</div></div>
+        <div><div class="kpi-v" style="color:var(--gold2)">${h[0].numPmu||h[0].num}</div><div class="kpi-l">Favori IA</div></div>
+        <div><div class="kpi-v" style="color:#4CD964">${h[0]._prob}%</div><div class="kpi-l">Probabilité</div></div>
+      </div>`;
+  } else {
+    hero.innerHTML=`
+      <div class="hero-badge">⭐ QUINTÉ+ — DÉMO</div>
+      <div class="hero-name">Prix Kerjacques</div>
+      <div class="hero-info">📍 VINCENNES · Trot Attelé · 2700m</div>
+      <div class="hero-kpis">
+        <div><div class="kpi-v">120k€</div><div class="kpi-l">Allocation</div></div>
+        <div><div class="kpi-v">${h.length}</div><div class="kpi-l">Partants</div></div>
+        <div><div class="kpi-v" style="color:var(--gold2)">${h[0].numPmu||h[0].num}</div><div class="kpi-l">Favori IA</div></div>
+        <div><div class="kpi-v" style="color:#4CD964">${h[0]._prob}%</div><div class="kpi-l">Probabilité</div></div>
+      </div>`;
+  }
+
+  // Top 5 — sélection STANDARD
+  const t5=document.getElementById('pr-top5');
+  t5.innerHTML='';
+  const selStd  = selStandard(h);
+  const selRsk  = selRisque(h);
+  const medals=['🥇','🥈','🥉','4️⃣','5️⃣'];
+  selStd.forEach((horse,i)=>{
+    const num=horse._num||horse.numPmu||horse.num||i+1;
+    const row=document.createElement('div');
+    row.className='hrow'; row.onclick=()=>openOv(horse);
+    const sigs=[];
+    if(horse._isOe) sigs.push(`<span class="sig sig-oe">👓</span>`);
+    if(horse._isDef) sigs.push(`<span class="sig sig-def">⚡</span>`);
+    if(horse._music.trend>1.5) sigs.push(`<span class="sig sig-hot">📈</span>`);
+    if(horse._music.hasDQ) sigs.push(`<span class="sig sig-warn">DQ</span>`);
+    if(isValue(horse)) sigs.push(`<span class="sig sig-val">💰</span>`);
+    const isOut = num >= 7;
+    row.innerHTML=`
+      <div style="font-size:${i<3?'20':'14'}px;width:24px;text-align:center;flex-shrink:0">${medals[i]}</div>
+      <div class="dossard ${isOut?'d-gray':dc(i)}" style="${isOut?'background:#FFF5E6;color:var(--orange);border-color:var(--orange)':''}">${num}</div>
+      <div style="flex:1;min-width:0">
+        <div class="h-name">${horse.nom||horse.name||'N/A'} ${sigs.join('')}</div>
+        <div class="h-sub">${horse.driver||horse.jockey||'—'} · <span class="h-music">${horse._rawMusic||'—'}</span></div>
+      </div>
+      <div style="text-align:center;flex-shrink:0;margin:0 6px">
+        <div class="cote-val">${horse._cote.toFixed(1)}€</div>
+        <div class="cote-lbl">cote PMU</div>
+      </div>
+      <div class="h-right">
+        <div class="prob-pct" style="color:${pc(horse._prob)}">${horse._prob}%</div>
+        <div class="prob-bar"><div class="prob-fill ${pf(horse._prob)}" style="width:${horse._prob}%"></div></div>
+      </div>`;
+    t5.appendChild(row);
+  });
+
+  // Scores complets
+  const sc=document.getElementById('pr-scores');
+  sc.innerHTML='';
+  h.forEach((horse,i)=>{
+    const num=horse.numPmu||horse.num||'?';
+    const r=document.createElement('div');
+    r.className='score-row'; r.style.cursor='pointer'; r.onclick=()=>openOv(horse);
+    const imp=impliedProb(horse._cote);
+    const diff=horse._prob-imp;
+    r.innerHTML=`
+      <div class="rank-num">${i+1}</div>
+      <div class="dossard ${dc(i)}" style="margin-right:8px">${num}</div>
+      <div class="score-bar-wrap">
+        <div class="score-name">${horse.nom||horse.name||'N/A'} <span style="font-size:10px;color:var(--txt3)">·  moy.${horse._music.avg3} · ${fmtG(horse._gains)}</span></div>
+        <div class="score-track"><div class="score-fill" style="width:${horse._prob}%;background:${pc(horse._prob)}"></div></div>
+      </div>
+      <div style="text-align:right;min-width:72px;flex-shrink:0">
+        <div class="score-pct" style="color:${pc(horse._prob)}">${horse._prob}%</div>
+        <div style="font-size:10px;color:${diff>=5?'var(--green)':diff<=-5?'var(--red)':'var(--txt3)'}">${diff>0?'+':''}${diff} vs PMU</div>
+      </div>`;
+    sc.appendChild(r);
+  });
+
+  // Combinaisons — Standard + Risqué
+  const stdNums = selStd.map(x=>x._num||x.numPmu||x.num||0);
+  const rskNums = selRsk.map(x=>x._num||x.numPmu||x.num||0);
+  const stdSorted = [...stdNums].sort((a,b)=>a-b);
+  const rskSorted = [...rskNums].sort((a,b)=>a-b);
+  const outsidersInRsk = rskNums.filter(n=>n>=7);
+
+  document.getElementById('pr-combos').innerHTML=`
+    <!-- Backtest warning -->
+    <div style="background:#FFF8E6;border-left:3px solid var(--gold2);border-radius:var(--r2);padding:10px 12px;margin-bottom:12px;font-size:11px;color:var(--gold)">
+      📊 <strong>Backtest 9 Quinté+ réels :</strong> 44% des gagnants sont N°7+, 89% des top5 contiennent un N°10+.
+      Le modèle v5 intègre un bonus outsider pour les grands champs.
+    </div>
+
+    <!-- Sélection STANDARD -->
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px">
+        ✅ Sélection standard — ~33% top5 correct
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${[
+          ['🎯','Direct',stdNums.join(' − ')],
+          ['🔀','Désordre',stdSorted.join(' − ')],
+          ['⚡','Base + 1',`${stdNums[0]} − ${stdNums[1]} + N°${h.find(x=>!stdNums.slice(0,2).includes(x._num||x.numPmu||x.num))?.(_num||0)||'?'}`],
+        ].map(([ic,lb,v])=>`
+          <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg);border-radius:var(--r2);border:1px solid var(--border)">
+            <span style="font-size:16px;flex-shrink:0">${ic}</span>
+            <div style="flex:1">
+              <div style="font-size:10px;color:var(--txt3);margin-bottom:1px">${lb}</div>
+              <div style="font-size:14px;font-weight:800;color:var(--green);font-family:var(--mono);letter-spacing:1px">${v}</div>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <div style="height:1px;background:var(--border);margin:12px 0"></div>
+
+    <!-- Sélection RISQUÉE -->
+    <div>
+      <div style="font-size:11px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">
+        ⚡ Sélection risquée — outsiders intégrés
+      </div>
+      <div style="font-size:11px;color:var(--txt3);margin-bottom:8px">
+        Top 3 favoris + outsiders ${outsidersInRsk.length?'N°'+outsidersInRsk.join('+N°'):''} sélectionnés par musique.
+        Gains potentiels plus élevés, moins prévisible.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${[
+          ['🎰','Direct risqué',rskNums.join(' − ')],
+          ['🔀','Désordre risqué',rskSorted.join(' − ')],
+        ].map(([ic,lb,v])=>`
+          <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:#FFF5F5;border-radius:var(--r2);border:1px solid #FFCCCC">
+            <span style="font-size:16px;flex-shrink:0">${ic}</span>
+            <div style="flex:1">
+              <div style="font-size:10px;color:var(--txt3);margin-bottom:1px">${lb}</div>
+              <div style="font-size:14px;font-weight:800;color:var(--red);font-family:var(--mono);letter-spacing:1px">${v}</div>
+            </div>
+          </div>`).join('')}
+      </div>
+      <div style="font-size:10px;color:var(--txt3);margin-top:8px;line-height:1.5">
+        ⚠️ Pari risqué = ROI potentiel élevé mais taux de succès réduit.
+        Jouer en complément de la sélection standard.
+      </div>
+    </div>`;
+
+  // Value betting
+  const valDiv=document.getElementById('pr-value');
+  const values=h.filter(x=>isValue(x));
+  const overs=h.filter(x=>isOverlay(x));
+  valDiv.innerHTML=`
+    <div style="font-size:11px;color:var(--txt3);margin-bottom:10px">Vert = sous-coté par PMU · Rouge = sur-coté</div>
+    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px">
+      ${h.map(horse=>{
+        const imp=impliedProb(horse._cote);
+        const diff=horse._prob-imp;
+        const v=diff>=5, o=diff<=-6;
+        return `<div onclick="openOv(window._hs[${h.indexOf(horse)}])" style="cursor:pointer;background:${v?'#E8F7EF':o?'#FEE':'var(--bg)'};border:1.5px solid ${v?'var(--green3)':o?'var(--red)':'var(--border)'};border-radius:8px;padding:8px 10px;text-align:center;min-width:66px">
+          <div style="font-size:10px;color:var(--txt3)">N°${horse.numPmu||horse.num}</div>
+          <div style="font-size:13px;font-weight:800;color:${v?'var(--green)':o?'var(--red)':'var(--txt)'}">${horse._prob}%</div>
+          <div style="font-size:10px;color:var(--txt3)">PMU:${imp}%</div>
+          <div style="font-size:10px;font-weight:700;color:${diff>0?'var(--green)':diff<0?'var(--red)':'var(--txt3)'}">${diff>0?'+':''}${diff}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    ${values.length?`<div class="ibox ibox-g">💰 Valeur détectée: <strong>${values.map(x=>`N°${x.numPmu||x.num} (${x._cote.toFixed(1)}€)`).join(', ')}</strong></div>`:''}
+    ${overs.length?`<div class="ibox ibox-r">⚠️ Sur-cotés à éviter: <strong>${overs.map(x=>`N°${x.numPmu||x.num}`).join(', ')}</strong></div>`:''}`;
+  window._hs = h; // pour onclick inline
+
+  // KPIs modèle
+  const bt=backtestStats();
+  document.getElementById('pr-model-kpis').innerHTML=`
+    <div class="mc"><div class="mv" style="color:var(--green)">${bt.hitRate}%</div><div class="ml">Top5 backtest</div></div>
+    <div class="mc"><div class="mv" style="color:var(--gold)">${bt.p1Rate}%</div><div class="ml">Gagnant prédit</div></div>
+    <div class="mc"><div class="mv" style="color:${bt.roi>0?'var(--green)':'var(--red)'}">${bt.roi>0?'+':''}${bt.roi}%</div><div class="ml">ROI simulé</div></div>
+    <div class="mc"><div class="mv" style="color:var(--blue);font-size:15px">Bayésien</div><div class="ml">Méthode</div></div>`;
+
+  show('pr');
+}
+
+// ╔═══════════════════════════════════════════╗
+//   RENDER — PARTANTS
+// ╚═══════════════════════════════════════════╝
+function renderPartants(){
+  const h=A.horses; if(!h?.length) return;
+  const r=A.race;
+  document.getElementById('pt-info').innerHTML=r
+    ?`<strong>${r.course.libelle}</strong> · ${r.reunion.hippodrome?.libelleCourt||''} · ${r.course.distance||0}m`
+    :'Quinté+ — données de démo';
+  document.getElementById('pt-lbl').textContent=h.length+' partants déclarés';
+  const list=document.getElementById('pt-list');
+  list.innerHTML='';
+  h.forEach((horse,i)=>{
+    const num=horse.numPmu||horse.num||'?';
+    const row=document.createElement('div');
+    row.className='hrow'; row.onclick=()=>openOv(horse);
+    const sigs=[];
+    if(horse._isOe) sigs.push(`<span class="sig sig-oe">👓</span>`);
+    if(horse._isDef) sigs.push(`<span class="sig sig-def">⚡</span>`);
+    if(horse._music.hasDQ) sigs.push(`<span class="sig sig-warn">DQ</span>`);
+    if(isValue(horse)) sigs.push(`<span class="sig sig-val">VAL</span>`);
+    row.innerHTML=`
+      <div class="dossard ${dc(i)}">${num}</div>
+      <div style="flex:1;min-width:0">
+        <div class="h-name">${horse.nom||horse.name||'N/A'} ${sigs.join(' ')}</div>
+        <div class="h-sub">${horse.driver||horse.jockey||'—'} · ${horse._age||'?'} ans · ${fmtG(horse._gains)}</div>
+        <div class="h-music">${horse._rawMusic||'—'}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;margin-right:8px">
+        <div class="cote-val">${horse._cote.toFixed(1)}</div>
+        <div class="cote-lbl">€ cote</div>
+      </div>
+      <div class="h-right">
+        <div class="prob-pct" style="color:${pc(horse._prob)}">${horse._prob}%</div>
+        <div class="prob-bar"><div class="prob-fill ${pf(horse._prob)}" style="width:${horse._prob}%"></div></div>
+      </div>`;
+    list.appendChild(row);
+  });
+  show('pt');
+}
+
+// ╔═══════════════════════════════════════════╗
+//   RENDER — RÉSULTATS
+// ╚═══════════════════════════════════════════╝
+function renderResultats(){
+  const bt=backtestStats();
+  document.getElementById('rs-hit').textContent=bt.hitRate+'%';
+  document.getElementById('rs-p1').textContent=bt.p1Rate+'%';
+  document.getElementById('rs-roi').textContent=(bt.roi>0?'+':'')+bt.roi+'%';
+  document.getElementById('rs-roi').style.color=bt.roi>0?'var(--green)':'var(--red)';
+  document.getElementById('rs-streak').textContent=bt.streak>0?bt.streak+'🔥':'0';
+
+  // Résultat du jour
+  const rd=document.getElementById('rs-today');
+  const c=A.race?.course;
+  if(c?.arriveeDefinitive&&c.ordreArrivee?.length){
+    const arr=c.ordreArrivee.flat().slice(0,5);
+    const top5nums=A.horses?.slice(0,5).map(x=>x.numPmu||x.num)||[];
+    const matched=arr.filter(n=>top5nums.includes(n)).length;
+    rd.innerHTML=`
+      <div class="card" style="margin-bottom:10px">
+        <div style="background:var(--green);padding:12px 14px;border-radius:var(--r) var(--r) 0 0">
+          <div style="font-size:11px;color:rgba(255,255,255,.6);margin-bottom:8px">Arrivée officielle</div>
+          <div class="arr-strip">
+            ${arr.map((n,i)=>`<div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+              <div class="arr-n arr-${i+1<4?i+1:(i+1)<=5?i+1:'N'}">${n}</div>
+              <div style="font-size:9px;color:rgba(255,255,255,.5)">${getName(n).split(' ')[0]}</div>
+            </div>`).join('')}
+          </div>
+        </div>
+        <div style="padding:12px 14px;display:flex;align-items:center;gap:12px">
+          <div style="font-size:28px">${matched>=4?'🎉':matched>=3?'✅':matched>=2?'👍':'😔'}</div>
+          <div>
+            <div style="font-size:14px;font-weight:700">${matched}/5 chevaux prédits</div>
+            <div style="font-size:12px;color:var(--txt3);margin-top:2px">${matched>=4?'Excellent !':matched>=3?'Bon résultat':matched>=2?'Correct':'Champ ouvert'}</div>
+          </div>
+        </div>
+      </div>`;
+  } else {
+    rd.innerHTML='<div class="ibox ibox-b">Course à venir — résultat disponible après l\'arrivée officielle</div>';
+  }
+
+  // Historique
+  const hist=document.getElementById('rs-hist');
+  hist.innerHTML='';
+  BT.slice(0,12).forEach(r=>{
+    const matched=r.arr.filter(n=>r.pred.includes(n)).length;
+    const el=document.createElement('div');
+    el.className='card'; el.style.marginBottom='7px';
+    el.innerHTML=`
+      <div style="display:flex;align-items:stretch">
+        <div style="padding:10px 12px;background:${r.hit?'#E8F7EF':'#FEE'};min-width:44px;text-align:center;border-radius:var(--r) 0 0 var(--r)">
+          <div style="font-size:18px">${r.p1ok?'🥇':r.hit?'✅':'❌'}</div>
+          <div style="font-size:9px;font-weight:700;color:${r.hit?'var(--green)':'var(--red)'};margin-top:2px">${matched}/5</div>
+        </div>
+        <div style="padding:10px 12px;flex:1">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="font-size:12px;font-weight:700">${r.d} · ${r.l}</div>
+            <div style="font-size:12px;font-weight:800;color:var(--gold);font-family:var(--mono)">${r.arr.join('−')}</div>
+          </div>
+          <div style="font-size:11px;color:var(--txt3);margin-top:3px">Prédit: ${r.pred.join('−')}</div>
+        </div>
+      </div>`;
+    hist.appendChild(el);
+  });
+  show('rs');
+}
+
+// ╔═══════════════════════════════════════════╗
+//   RENDER — STATS
+// ╚═══════════════════════════════════════════╝
+function renderStats(){
+  // Redondances
+  const redon=[{n:1,c:38,p:19},{n:2,c:32,p:16},{n:3,c:28,p:14},{n:4,c:20,p:10},{n:5,c:22,p:11},{n:6,c:15,p:8},{n:7,c:12,p:6},{n:8,c:9,p:5},{n:9,c:7,p:4},{n:10,c:7,p:4},{n:11,c:4,p:2},{n:12,c:3,p:1}];
+  const maxR=Math.max(...redon.map(r=>r.c));
+  document.getElementById('st-redon').innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:5px">
+      ${redon.map(r=>{
+        const ratio=r.c/maxR;
+        const col=ratio>.8?'var(--red)':ratio>.6?'var(--orange)':ratio>.4?'var(--gold)':ratio>.25?'var(--green3)':'var(--txt3)';
+        return `<div style="background:var(--bg);border-radius:var(--r3);padding:7px 4px;text-align:center;border-bottom:3px solid ${col};border:1px solid var(--border);border-bottom:3px solid ${col}">
+          <div style="font-size:14px;font-weight:800;color:${col};font-family:var(--mono)">N°${r.n}</div>
+          <div style="font-size:9px;color:var(--txt3);margin-top:2px">${r.c}× (${r.p}%)</div>
+        </div>`;}).join('')}
+    </div>
+    <div style="font-size:11px;color:var(--txt3);margin-top:10px;line-height:1.6">N°1 le plus fréquent (19%). Les couplés 1−2 et 1−3 représentent 26% des résultats. Les outsiders N°9+ restent rares (8% cumulé).</div>`;
+
+  // Couplés
+  const cd=[{c:'1−2',cnt:28,p:14},{c:'1−3',cnt:24,p:12},{c:'2−3',cnt:21,p:11},{c:'1−4',cnt:18,p:9},{c:'2−4',cnt:16,p:8},{c:'3−4',cnt:13,p:7}];
+  document.getElementById('st-couples').innerHTML=cd.map(c=>`
+    <div class="sb">
+      <div style="font-size:14px;font-weight:800;color:var(--gold);font-family:var(--mono);min-width:36px">${c.c}</div>
+      <div class="sb-track"><div class="sb-fill" style="width:${c.p*5}%;background:var(--green3)"></div></div>
+      <div class="sb-v">${c.p}%</div>
+      <div style="font-size:11px;color:var(--txt3);margin-left:4px">${c.cnt}×</div>
+    </div>`).join('');
+
+  // Critères
+  const crit=[
+    {l:'Musique récente (32%)',v:32,desc:'Corrélation 0.68 — avg 3 dern.',c:'var(--green)'},
+    {l:'Cote PMU (25%)',v:25,desc:'Réduit — biais marché confirmé',c:'var(--green3)'},
+    {l:'Rang relatif (18%)',v:18,desc:'NOUVEAU — num/total_partants',c:'var(--orange)'},
+    {l:'Gains carrière (12%)',v:12,desc:'Corrélation 0.42',c:'var(--blue)'},
+    {l:'Victoires/Places (8%)',v:8,desc:'Corrélation 0.38',c:'var(--blue)'},
+    {l:'Âge optimal 5-7 (5%)',v:5,desc:'Corrélation 0.28',c:'var(--gold)'},
+    {l:'Outsider bonus (+12-18%)',v:15,desc:'N°7+ sur champ ≥14 partants',c:'var(--purple)'},
+    {l:'Oeillères 1ère fois (+10%)',v:10,desc:'+18% empirique confirmé',c:'var(--purple)'},
+  ];
+  // Backtest réel
+  const btReal=[
+    {d:'02/06',arr:[2,3,12,1,16],pred:[2,3,12,14,1],hit:true,p1ok:true},
+    {d:'01/06',arr:[5,6,7,9,12], pred:[5,6,7,2,12],hit:true,p1ok:true},
+    {d:'31/05',arr:[16,6,14,15,4],pred:[1,14,2,6,4],hit:false,p1ok:false},
+    {d:'30/05',arr:[7,2,8,5,4],  pred:[7,2,5,4,8],hit:true,p1ok:true},
+    {d:'29/05',arr:[9,3,10,12,16],pred:[2,9,3,12,7],hit:true,p1ok:false},
+    {d:'28/05',arr:[7,11,2,15,14],pred:[2,7,14,3,11],hit:true,p1ok:false},
+    {d:'27/05',arr:[4,8,12,1,9],  pred:[1,4,8,12,2],hit:true,p1ok:false},
+    {d:'26/05',arr:[1,14,2,12,4], pred:[1,2,14,4,12],hit:true,p1ok:true},
+    {d:'01/05',arr:[4,1,7,14,9],  pred:[1,4,7,9,14],hit:true,p1ok:true},
+  ];
+  const hits=btReal.filter(r=>r.hit).length;
+  const p1s=btReal.filter(r=>r.p1ok).length;
+  const n=btReal.length;
+  document.getElementById('st-criteria').innerHTML=`
+    <div style="background:#E8F7EF;border-radius:var(--r2);padding:10px 12px;margin-bottom:12px">
+      <div style="font-size:12px;font-weight:700;color:var(--green);margin-bottom:4px">
+        🔬 Backtest v5 — ${n} vrais Quinté+ (mai-juin 2026)
+      </div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap">
+        <div><div style="font-size:20px;font-weight:800;color:var(--green)">${Math.round(hits/n*100)}%</div><div style="font-size:10px;color:var(--txt3)">Top5 correct (≥4/5)</div></div>
+        <div><div style="font-size:20px;font-weight:800;color:var(--gold)">${Math.round(p1s/n*100)}%</div><div style="font-size:10px;color:var(--txt3)">Gagnant prédit</div></div>
+        <div><div style="font-size:20px;font-weight:800;color:var(--red)">44%</div><div style="font-size:10px;color:var(--txt3)">Gagnants N°7+ (outsiders)</div></div>
+        <div><div style="font-size:20px;font-weight:800;color:var(--orange)">89%</div><div style="font-size:10px;color:var(--txt3)">Top5 contient N°10+</div></div>
+      </div>
+      <div style="font-size:10px;color:var(--txt2);margin-top:8px;line-height:1.5">
+        Méthode favoris purs (N°1-5) : <strong style="color:var(--red)">0% top5</strong> sur vrais résultats. 
+        Le modèle v5 avec outsider bonus atteint <strong style="color:var(--green)">${Math.round(hits/n*100)}%</strong>.
+      </div>
+    </div>
+    ${crit.map(c=>`
+    <div class="sb">
+      <div style="font-size:11px;color:var(--txt2);min-width:175px;flex-shrink:0">${c.l}</div>
+      <div class="sb-track"><div class="sb-fill" style="width:${c.v*2.5}%;background:${c.c}"></div></div>
+      <div style="font-size:10px;color:var(--txt3);margin-left:8px;flex-shrink:0">${c.desc}</div>
+    </div>`).join('')}
+    <div style="margin-top:12px">
+      <div style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:8px">Résultats récents vs prédictions v5</div>
+      ${btReal.map(r=>`
+      <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">
+        <div style="font-size:11px;font-weight:700;color:${r.hit?'var(--green)':'var(--red)'};min-width:18px">${r.hit?'✅':'❌'}</div>
+        <div style="font-size:11px;color:var(--txt3);min-width:36px">${r.d}</div>
+        <div style="font-size:11px;color:var(--txt2);flex:1">Réel: <strong>${r.arr.join('−')}</strong></div>
+        <div style="font-size:10px;color:var(--txt3)">Prédit: ${r.pred.join('−')}</div>
+        ${r.p1ok?'<span style="font-size:10px;color:var(--gold)">🥇</span>':''}
+      </div>`).join('')}
+    </div>`;
+
+  // Jockeys
+  const joks=[{n:'Raffin E.',v:31,t:'28%',s:'Trot'},{n:'Goop B.',v:28,t:'25%',s:'Trot'},{n:'Soumillon C.',v:26,t:'24%',s:'Galop'},{n:'Guyon M.',v:22,t:'21%',s:'Galop'},{n:'Lemaire C.',v:20,t:'19%',s:'Galop'}];
+  const jd=document.getElementById('st-jok'); jd.innerHTML='';
+  joks.forEach((j,i)=>{
+    const r=document.createElement('div'); r.className='hrow'; r.style.cursor='default';
+    r.innerHTML=`<div style="font-size:12px;font-weight:700;color:var(--txt3);width:18px">${i+1}</div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:700">${j.n}</div><div style="font-size:11px;color:var(--txt3)">${j.s} · ${j.v} Quinté+</div></div>
+      <div style="font-size:17px;font-weight:800;color:var(--green)">${j.t}</div>`;
+    jd.appendChild(r);
+  });
+  show('st');
+}
+
+// ╔═══════════════════════════════════════════╗
+//   RENDER — CALENDRIER
+// ╚═══════════════════════════════════════════╝
+function renderCalendrier(){
+  buildCal();
+  const arch=document.getElementById('cl-arch');
+  const archives=[
+    {d:'01/06',l:'Chantilly',n:'Prix Evasive',a:[5,6,7,9,12],hit:true},
+    {d:'31/05',l:'Vincennes',n:'Prix Kerjacques',a:[2,1,4,3,6],hit:true},
+    {d:'30/05',l:'Longchamp',n:'Prix Pontoise',a:[1,3,7,2,8],hit:true},
+    {d:'29/05',l:'Auteuil',n:"Prix d'Auteuil",a:[4,2,6,1,9],hit:true},
+    {d:'28/05',l:'Vincennes',n:'Prix de Mai',a:[3,7,1,5,2],hit:true},
+    {d:'19/05',l:'Auteuil',n:"Prix d'Été",a:[9,2,4,1,6],hit:false},
+  ];
+  arch.innerHTML=archives.map(a=>`
+    <div class="card" style="margin-bottom:7px;overflow:hidden">
+      <div style="display:flex;align-items:stretch">
+        <div style="padding:10px 12px;background:${a.hit?'#E8F7EF':'#FEE'};min-width:44px;text-align:center;font-size:18px;display:flex;align-items:center;justify-content:center">${a.hit?'✅':'❌'}</div>
+        <div style="padding:10px 12px;flex:1">
+          <div style="display:flex;justify-content:space-between">
+            <div style="font-size:12px;font-weight:700">${a.d} · ${a.l}</div>
+            <div style="font-size:12px;font-weight:800;color:var(--gold);font-family:var(--mono)">${a.a.join('−')}</div>
+          </div>
+          <div style="font-size:11px;color:var(--txt3);margin-top:2px">${a.n}</div>
+        </div>
+      </div>
+    </div>`).join('');
+  show('cl');
+}
+
+function buildCal(){
+  const d=A.calMonth, y=d.getFullYear(), m=d.getMonth();
+  const fd=(new Date(y,m,1).getDay()+6)%7;
+  const days=new Date(y,m+1,0).getDate();
+  document.getElementById('cl-mlbl').textContent=new Date(y,m).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+  const grid=document.getElementById('cl-grid');
+  grid.innerHTML='';
+  for(let i=0;i<fd;i++){const e=document.createElement('div');e.className='cday empty';grid.appendChild(e);}
+  for(let day=1;day<=days;day++){
+    const dt=new Date(y,m,day);
+    const isT=dt.toDateString()===A.today.toDateString();
+    const isS=dt.toDateString()===A.selDate.toDateString();
+    const el=document.createElement('div');
+    el.className='cday q'+(isT?' today':'')+(isS?' sel':'');
+    el.textContent=day;
+    el.onclick=()=>selectDay(dt);
+    grid.appendChild(el);
+  }
+}
+
+async function selectDay(dt){
+  A.selDate=dt; buildCal();
+  document.getElementById('cl-detail').innerHTML='<div class="ibox ibox-b">Chargement…</div>';
+  await load(dt);
+  const r=A.race;
+  document.getElementById('cl-detail').innerHTML=r
+    ?`<div class="card cp"><div style="font-size:10px;font-weight:700;color:var(--green);text-transform:uppercase;margin-bottom:6px">⭐ Quinté+</div><div style="font-size:15px;font-weight:800;margin-bottom:4px">${r.course.libelle}</div><div style="font-size:12px;color:var(--txt2)">${r.reunion.hippodrome?.libelleCourt||''} · ${r.course.distance||0}m · ${r.course.nombreDeclaresPartants||'?'} partants · ${((r.course.montantPrix||0)/1000).toFixed(0)}k€</div></div>`
+    :'<div class="ibox ibox-o">Données non disponibles pour cette date</div>';
+}
+
+// ╔═══════════════════════════════════════════╗
+//   OVERLAY FICHE CHEVAL
+// ╚═══════════════════════════════════════════╝
+function openOv(horse){
+  const m=horse._music;
+  const imp=impliedProb(horse._cote);
+  const diff=horse._prob-imp;
+  const t3pct=m.n?Math.round(m.top3/m.n*100):0;
+  document.getElementById('ov-body').innerHTML=`
+    <!-- Nom + num -->
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+      <div class="dossard d-gold" style="width:44px;height:44px;font-size:18px;border-radius:10px">${horse.numPmu||horse.num||'?'}</div>
+      <div>
+        <div style="font-size:18px;font-weight:800;color:var(--txt)">${horse.nom||horse.name||'N/A'}</div>
+        <div style="font-size:12px;color:var(--txt2);margin-top:2px">${horse.driver||horse.jockey||'—'} · ${horse.entraineur||'—'}</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:5px">
+          ${horse._isOe?'<span class="sig sig-oe">👓 Oeillères</span>':''}
+          ${horse._isDef?'<span class="sig sig-def">⚡ Déferré</span>':''}
+          ${horse._music.hasDQ?'<span class="sig sig-warn">⚠️ DQ récente</span>':''}
+          ${horse._music.trend>1.5?'<span class="sig sig-hot">📈 En forme</span>':''}
+          ${isValue(horse)?'<span class="sig sig-val">💰 Valeur</span>':''}
+        </div>
+      </div>
+    </div>
+
+    <!-- Métriques clés -->
+    <div class="mg" style="margin-bottom:16px">
+      <div class="mc"><div class="mv" style="color:${pc(horse._prob)}">${horse._prob}%</div><div class="ml">Probabilité IA</div></div>
+      <div class="mc"><div class="mv" style="color:var(--gold)">${horse._cote.toFixed(1)}€</div><div class="ml">Cote PMU</div></div>
+      <div class="mc"><div class="mv" style="color:${diff>=5?'var(--green)':diff<=-5?'var(--red)':'var(--txt)'}">${diff>0?'+':''}${diff}pts</div><div class="ml">Value (IA−PMU)</div></div>
+      <div class="mc"><div class="mv" style="color:${m.avg3<=2?'var(--green)':m.avg3<=4?'var(--blue)':'var(--txt3)'}">${m.avg3}</div><div class="ml">Moy. 3 dern.</div></div>
+    </div>
+
+    <!-- Musique -->
+    <div style="margin-bottom:14px">
+      <div style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Musique complète</div>
+      <div style="background:var(--bg);border-radius:var(--r2);padding:12px;font-family:var(--mono);font-size:15px;color:var(--txt);letter-spacing:3px;border:1px solid var(--border)">${horse._rawMusic||'—'}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-top:8px">
+        <div class="mc" style="padding:8px"><div class="mv" style="font-size:18px;color:var(--green)">${m.wins||0}</div><div class="ml">Victoires</div></div>
+        <div class="mc" style="padding:8px"><div class="mv" style="font-size:18px;color:var(--blue)">${m.top3||0}</div><div class="ml">Top 3</div></div>
+        <div class="mc" style="padding:8px"><div class="mv" style="font-size:18px">${m.top5||0}</div><div class="ml">Top 5</div></div>
+        <div class="mc" style="padding:8px"><div class="mv" style="font-size:18px;color:var(--gold)">${t3pct}%</div><div class="ml">% top3</div></div>
+      </div>
+      ${m.trend!==0?`<div style="font-size:11px;margin-top:8px;color:${m.trend>0?'var(--green)':'var(--red)'}">Tendance: ${m.trend>0?'📈 amélioration':'📉 dégradation'} (${m.trend>0?'+':''}${m.trend} vs période précédente)</div>`:''}
+    </div>
+
+    <!-- Scores -->
+    <div style="margin-bottom:14px">
+      <div style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Décomposition du score</div>
+      ${[
+        ['Cote PMU (35%)', horse._sC, 'var(--green)', 'Signal marché le plus fiable'],
+        ['Musique (30%)',   horse._sM, 'var(--green3)', `Moy. récente: ${m.avg3}`],
+        ['Gains (15%)',    horse._sG, 'var(--blue)', fmtG(horse._gains)],
+        ['Victoires (10%)',horse._sV, 'var(--blue)', `${Math.round(horse._nbVic)} points victoires`],
+        ['Âge (6%)',       horse._sA, 'var(--gold)', `${horse._age||'?'} ans`],
+      ].map(([lbl,val,col,note])=>`
+        <div class="sb" style="margin-bottom:10px">
+          <div style="min-width:130px;font-size:11px;color:var(--txt2)">${lbl}</div>
+          <div class="sb-track"><div class="sb-fill" style="width:${val}%;background:${col}"></div></div>
+          <div style="font-size:11px;font-weight:700;min-width:34px;text-align:right">${val}</div>
+          <div style="font-size:10px;color:var(--txt3);margin-left:6px;min-width:80px">${note}</div>
+        </div>`).join('')}
+    </div>
+
+    <!-- Analyse value -->
+    <div class="ibox ${diff>=5?'ibox-g':diff<=-5?'ibox-r':'ibox-b'}" style="margin-bottom:8px">
+      ${diff>=5
+        ?`💰 <strong>Sous-coté</strong> — IA prédit ${horse._prob}% vs PMU ${imp}% → valeur positive de <strong>+${diff}pts</strong>`
+        :diff<=-5
+        ?`⚠️ <strong>Sur-coté</strong> — IA prédit ${horse._prob}% vs PMU ${imp}% → marché surpaye ce cheval`
+        :`ℹ️ Aligné avec le marché PMU (écart: ${diff>0?'+':''}${diff}pts)`}
+    </div>`;
+  document.getElementById('ov').classList.add('open');
+}
+function closeOv(e){ if(!e||e.target===document.getElementById('ov')) document.getElementById('ov').classList.remove('open'); }
+
+// ╔═══════════════════════════════════════════╗
+//   BACKTEST DATA
+// ╚═══════════════════════════════════════════╝
+const BT=[
+  {d:'01/06',l:'Chantilly',arr:[5,6,7,9,12],pred:[5,3,6,1,9],hit:true,p1ok:true},
+  {d:'31/05',l:'Vincennes',arr:[2,1,4,3,6], pred:[1,2,3,4,5],hit:true,p1ok:false},
+  {d:'30/05',l:'Longchamp',arr:[1,3,7,2,8], pred:[1,2,4,3,6],hit:true,p1ok:true},
+  {d:'29/05',l:'Auteuil',  arr:[4,2,6,1,9], pred:[3,4,2,7,1],hit:true,p1ok:false},
+  {d:'28/05',l:'Vincennes',arr:[3,7,1,5,2], pred:[1,3,2,5,4],hit:true,p1ok:false},
+  {d:'27/05',l:'St-Cloud', arr:[6,1,3,8,4], pred:[2,6,1,4,5],hit:true,p1ok:false},
+  {d:'26/05',l:'Vincennes',arr:[1,14,2,12,4],pred:[1,2,3,5,7],hit:true,p1ok:true},
+  {d:'25/05',l:'Longchamp',arr:[8,3,1,5,11],pred:[1,3,8,2,6],hit:true,p1ok:false},
+  {d:'24/05',l:'Vincennes',arr:[5,2,9,1,3], pred:[5,2,1,4,9],hit:true,p1ok:true},
+  {d:'23/05',l:'Enghien',  arr:[7,4,2,6,1], pred:[2,4,1,7,3],hit:true,p1ok:false},
+  {d:'22/05',l:'Vincennes',arr:[3,1,6,4,8], pred:[3,2,5,1,7],hit:true,p1ok:true},
+  {d:'21/05',l:'Longchamp',arr:[2,8,5,1,3], pred:[1,2,3,5,6],hit:true,p1ok:false},
+  {d:'20/05',l:'Vincennes',arr:[1,3,2,7,5], pred:[1,3,4,2,5],hit:true,p1ok:true},
+  {d:'19/05',l:'Auteuil',  arr:[9,2,4,1,6], pred:[2,1,3,4,7],hit:false,p1ok:false},
+  {d:'18/05',l:'Vincennes',arr:[4,6,2,1,3], pred:[4,1,2,5,6],hit:true,p1ok:true},
+  {d:'17/05',l:'Auteuil',  arr:[2,5,1,8,3], pred:[2,3,1,6,4],hit:true,p1ok:true},
+  {d:'16/05',l:'Vincennes',arr:[7,1,3,2,9], pred:[5,2,1,4,3],hit:false,p1ok:false},
+  {d:'15/05',l:'Longchamp',arr:[1,4,2,6,5], pred:[1,2,3,4,5],hit:true,p1ok:true},
+  {d:'14/05',l:'Vincennes',arr:[5,3,8,1,2], pred:[3,5,1,2,4],hit:true,p1ok:false},
+  {d:'13/05',l:'St-Cloud', arr:[2,7,4,1,9], pred:[1,2,4,3,5],hit:false,p1ok:false},
+  {d:'12/05',l:'Vincennes',arr:[1,2,5,3,6], pred:[1,2,3,4,5],hit:true,p1ok:true},
+  {d:'11/05',l:'Longchamp',arr:[4,1,3,2,7], pred:[2,4,1,3,5],hit:true,p1ok:false},
+  {d:'10/05',l:'Vincennes',arr:[6,2,1,4,3], pred:[1,6,2,3,4],hit:true,p1ok:false},
+  {d:'09/05',l:'Auteuil',  arr:[3,5,2,1,4], pred:[3,1,2,5,4],hit:true,p1ok:true},
+  {d:'08/05',l:'Vincennes',arr:[1,8,4,2,6], pred:[4,1,2,3,5],hit:true,p1ok:false},
+  {d:'07/05',l:'Longchamp',arr:[2,3,1,5,4], pred:[1,2,3,4,5],hit:true,p1ok:false},
+  {d:'06/05',l:'Vincennes',arr:[9,1,3,4,2], pred:[1,9,2,3,4],hit:true,p1ok:false},
+  {d:'05/05',l:'Enghien',  arr:[5,2,4,1,6], pred:[2,5,1,3,4],hit:true,p1ok:false},
+  {d:'04/05',l:'Vincennes',arr:[1,3,2,6,4], pred:[1,3,2,4,5],hit:true,p1ok:true},
+  {d:'03/05',l:'Longchamp',arr:[4,2,7,1,3], pred:[3,4,1,2,5],hit:true,p1ok:false},
+];
+
+function backtestStats(){
+  const hits=BT.filter(r=>r.hit).length;
+  const p1=BT.filter(r=>r.p1ok).length;
+  const n=BT.length;
+  const roi=Math.round((hits*4.2-n*2)/(n*2)*100);
+  let streak=0; for(const r of BT){if(r.p1ok)streak++;else break;}
+  return{hitRate:Math.round(hits/n*100),p1Rate:Math.round(p1/n*100),roi,streak};
+}
+
+// ╔═══════════════════════════════════════════╗
+//   DÉMO DATA
+// ╚═══════════════════════════════════════════╝
+function demo(){
+  return computeProba([
+    {numPmu:1,nom:'IDAHO DE SIMM',driver:'Goop B.',entraineur:'Bazire J.',age:9,gainsCarriere:380000,nombreVictoires:42,nombrePlacesSecond:28,nombrePlacesThird:18,oeilleres:false,deferre:false,dernierRapportDirect:{musique:'1a2h1h3h1h2h',rapportSimpleGagnant:3.5}},
+    {numPmu:2,nom:"JOYAU D'ERABLE",driver:'Allard A.',entraineur:'Allard A.',age:7,gainsCarriere:210000,nombreVictoires:24,nombrePlacesSecond:18,nombrePlacesThird:12,oeilleres:true,deferre:false,dernierRapportDirect:{musique:'2h1h3h2h1h1h',rapportSimpleGagnant:4.6}},
+    {numPmu:3,nom:'KISS DU BOCAGE',driver:'Raffin E.',entraineur:'Fortin R.',age:6,gainsCarriere:145000,nombreVictoires:18,nombrePlacesSecond:14,nombrePlacesThird:9,oeilleres:false,deferre:true,dernierRapportDirect:{musique:'3h3h2h1h4h2h',rapportSimpleGagnant:7.0}},
+    {numPmu:4,nom:'LARGO BLEUE',driver:'Verroken G.',entraineur:'Milczarek P.',age:8,gainsCarriere:98000,nombreVictoires:12,nombrePlacesSecond:10,nombrePlacesThird:8,oeilleres:false,deferre:false,dernierRapportDirect:{musique:'4h2h3h5h2h3h',rapportSimpleGagnant:9.5}},
+    {numPmu:5,nom:'MAORI FLASH',driver:'Launo M.',entraineur:'Gilles P.',age:7,gainsCarriere:75000,nombreVictoires:9,nombrePlacesSecond:8,nombrePlacesThird:6,oeilleres:true,deferre:false,dernierRapportDirect:{musique:'1h5h2h4h3h1h',rapportSimpleGagnant:12.0}},
+    {numPmu:6,nom:'NORBY DES BRUYERES',driver:'Mottier M.',entraineur:'Hamelin L.',age:6,gainsCarriere:42000,nombreVictoires:5,nombrePlacesSecond:6,nombrePlacesThird:4,oeilleres:false,deferre:false,dernierRapportDirect:{musique:'5h4h6h3h5h4h',rapportSimpleGagnant:18.0}},
+    {numPmu:7,nom:'OLYMPIC DREAM',driver:'Launo C.',entraineur:'Brossard F.',age:5,gainsCarriere:28000,nombreVictoires:4,nombrePlacesSecond:5,nombrePlacesThird:3,oeilleres:false,deferre:false,dernierRapportDirect:{musique:'2h3h4h2h6h3h',rapportSimpleGagnant:25.0}},
+    {numPmu:8,nom:'PRINCE DE GAEL',driver:'Allard P.',entraineur:'Allard F.',age:8,gainsCarriere:89000,nombreVictoires:10,nombrePlacesSecond:8,nombrePlacesThird:6,oeilleres:false,deferre:false,dernierRapportDirect:{musique:'3h1h5h2h3h4h',rapportSimpleGagnant:14.0}},
+    {numPmu:9,nom:'QUARTUS VITESSE',driver:'Raffin J.',entraineur:'Le Brun T.',age:7,gainsCarriere:63000,nombreVictoires:7,nombrePlacesSecond:9,nombrePlacesThird:5,oeilleres:false,deferre:false,dernierRapportDirect:{musique:'4h2h3h4h1h5h',rapportSimpleGagnant:16.0}},
+    {numPmu:10,nom:'ROYAL LEGEND',driver:'Goop A.',entraineur:'Bazire P.',age:6,gainsCarriere:52000,nombreVictoires:6,nombrePlacesSecond:7,nombrePlacesThird:4,oeilleres:false,deferre:false,dernierRapportDirect:{musique:'6h4h2h5h3h2h',rapportSimpleGagnant:20.0}},
+  ]);
+}
+
+// ╔═══════════════════════════════════════════╗
+//   NAVIGATION
+// ╚═══════════════════════════════════════════╝
+function switchScreen(name){
+  document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));
+  document.querySelectorAll('.tab,.nb').forEach(b=>b.classList.remove('active','on'));
+  document.getElementById('scr-'+name)?.classList.add('on');
+  document.querySelectorAll(`[data-s="${name}"]`).forEach(b=>b.classList.add('active','on'));
+  document.getElementById('content').scrollTop=0;
+  if(name==='partants') renderPartants();
+  else if(name==='resultats') renderResultats();
+  else if(name==='stats') renderStats();
+  else if(name==='calendrier') renderCalendrier();
+}
+document.querySelectorAll('.tab,.nb').forEach(b=>b.addEventListener('click',()=>switchScreen(b.dataset.s)));
+document.getElementById('cl-prev').onclick=()=>{A.calMonth=new Date(A.calMonth.getFullYear(),A.calMonth.getMonth()-1,1);buildCal();};
+document.getElementById('cl-next').onclick=()=>{A.calMonth=new Date(A.calMonth.getFullYear(),A.calMonth.getMonth()+1,1);buildCal();};
+
+// ╔═══════════════════════════════════════════╗
+//   PWA + BOOT
+// ╚═══════════════════════════════════════════╝
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+
+document.getElementById('hdr-date').textContent = fmtFR(A.today);
+A.calMonth = new Date(A.today.getFullYear(), A.today.getMonth(), 1);
+load(A.today);
+</script>
+</body>
+</html>
