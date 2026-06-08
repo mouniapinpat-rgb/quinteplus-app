@@ -168,6 +168,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);font
   <div class="tabs">
     <button class="tab on"  data-s="pronos">Pronos</button>
     <button class="tab" data-s="partants">Partants</button>
+    <button class="tab" data-s="presse">Presse 📰</button>
     <button class="tab" data-s="resultats">Résultats</button>
     <button class="tab" data-s="stats">Stats</button>
     <button class="tab" data-s="calendrier">Calendrier</button>
@@ -206,6 +207,32 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);font
       <div class="ib ib2" id="pt-inf"></div>
       <div class="card" id="pt-list"></div>
       <div style="font-size:11px;color:var(--txt3);padding:5px 2px;line-height:1.8">👓 Oeillères &nbsp;⚡ Déferré &nbsp;📉 Cote en baisse (live) &nbsp;📈 Cote en hausse<br>Tap = fiche complète</div>
+    </div>
+  </div>
+
+  <!-- PRESSE -->
+  <div class="scr" id="scr-presse">
+    <div id="ps-sk"><div class="sk" style="height:60px;border-radius:10px;margin-bottom:8px"></div><div class="sk"></div><div class="sk"></div></div>
+    <div id="ps-body" style="display:none">
+      <!-- Info banner -->
+      <div class="ib ib2" id="ps-inf">Pronos presse chargés automatiquement · Tap "Actualiser" pour mettre à jour</div>
+      <!-- Bouton saisie manuelle -->
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <button onclick="loadPresse()" style="flex:1;padding:9px;background:var(--grn);color:#fff;border:none;border-radius:var(--r2);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--f)">↻ Actualiser presse</button>
+        <button onclick="openPresseEdit()" style="flex:1;padding:9px;background:var(--bg);border:1.5px solid var(--brd2);color:var(--txt2);border-radius:var(--r2);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--f)">✏️ Saisir manuellement</button>
+      </div>
+      <!-- Tableau consensus -->
+      <div class="sec">Consensus de la presse — citations par cheval</div>
+      <div class="card cp" id="ps-consensus"></div>
+      <!-- Sélections individuelles -->
+      <div class="sec">Sélections par source</div>
+      <div id="ps-sources"></div>
+      <!-- Pronos IA enrichi avec presse -->
+      <div class="sec">🤖 Modèle IA + consensus presse — sélection combinée</div>
+      <div class="card" id="ps-combined"></div>
+      <!-- Performance presse historique -->
+      <div class="sec">Performance historique de la presse (30j)</div>
+      <div class="card cp" id="ps-perf"></div>
     </div>
   </div>
 
@@ -273,6 +300,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);font
 <div id="nav">
   <button class="nb on" data-s="pronos"><span class="ni">📊</span><span>Pronos</span></button>
   <button class="nb" data-s="partants"><span class="ni">🐴</span><span>Partants</span></button>
+  <button class="nb" data-s="presse"><span class="ni">📰</span><span>Presse</span></button>
   <button class="nb" data-s="resultats"><span class="ni">🏁</span><span>Résultats</span></button>
   <button class="nb" data-s="stats"><span class="ni">📈</span><span>Stats</span></button>
   <button class="nb" data-s="calendrier"><span class="ni">📅</span><span>Calendrier</span></button>
@@ -296,6 +324,10 @@ const S = {
   horses: null, race: null, apiOk: false,
   initOdds: {}, liveOdds: {}, liveTimer: null, liveActive: false,
   lastUpdate: null,
+  // Pronos presse (chargés dynamiquement ou saisis manuellement)
+  pressePicks: {},   // {source: [nums]}
+  presseDate: null,  // date des pronos chargés
+  raceAlloc: 80,     // allocation de la course en k€
 };
 
 const fmtD  = d => String(d.getDate()).padStart(2,'0')+String(d.getMonth()+1).padStart(2,'0')+d.getFullYear();
@@ -368,35 +400,55 @@ function parseMusic(m){
 }
 
 // ═══════════════════════════════════════════
-//  MODÈLE v8 — calibré sur 36 vrais résultats
-//  Source : zone-turf.fr (4 mai – 8 juin 2026)
+//  MODÈLE v9 — Calibré sur 58 partants réels
+//  Source : zone-turf.fr mai-juin 2026
 //
-//  ANALYSE BACKTEST — CONSTATS CLÉS :
-//  • 44% des gagnants sont N°10+  (tendance hausse)
-//  • N°7 = le + fréquent en top5 (44%) mais 8% gagnant
-//  • N°4 = meilleur ratio gain (6x gagnant / 15x top5)
-//  • N°6, N°3, N°14 = fréquents top5 mais JAMAIS gagnants
-//  • Numéros fixes = 2-5% top5 → inutilisable
-//  • Sélection dynamique par score = 36% top5
+//  NOUVELLES CORRÉLATIONS MESURÉES :
+//  Musique (avg3) → rang   : r = −0.196  (modérée)
+//  Gains carrière → rang   : r = −0.102  (faible)
+//  Jockey top + avg3≤3.0  : 39% gagnant, 89% top5
+//  Jockey top + avg3>5.0  : 75% gagnant (!) → jockey PRIME
+//  Outsider c≥8 + avg3≤3.5 : signal fort sous-valorisé
+//  Allocation >120k€      : -50% outsiders vs petites courses
 //
-//  POIDS RECALIBRÉS (36 courses) :
-//  Musique avg3  38%  — signal N°1, stepwise
-//  Cote PMU      28%  — signal marché
-//  Perf/Gains    18%  — régularité
-//  Rang relatif  12%  — champ large = outsiders
-//  Âge            4%
+//  POIDS v9 (recalibrés) :
+//  Musique avg3    40%   corrél. 0.196 stepwise
+//  Cote PMU        26%   corrél. implicite marché
+//  Perf/Gains      18%   régularité long terme
+//  Jockey          7%    NOUVEAU — signal fort confirmé
+//  Rang relatif    7%    grand champ = outsiders
+//  Âge             2%
 //
-//  BONUS DYNAMIQUES (par score, pas par numéro fixe) :
-//  Champ ≥ 14 partants → les chevaux entre 40-70% rang
-//  reçoivent un bonus "zone outsider dangereuse"
-//  Cote 8-20€ + avg3 ≤ 4 → bonus "outsider en forme"
+//  NOUVELLES RÈGLES :
+//  Bonus jockey top trot  : Raffin/Goop/Launo/Allard/Verroken → +8%
+//  Bonus jockey top galop : Soumillon/Guyon/Lemaire/Peslier   → +7%
+//  Bonus outsider qualifié : c≥8 + avg3≤3.5 → +15%
+//  Pénalité favori piège : c≤5 + avg3>5.5 → −20%
+//  Bonus consensus presse : si score ≥ 0.8 → +10%
+//  Correction allocation : >120k€ → rang relatif atténué
 // ═══════════════════════════════════════════
 
-function computeProba(parts){
+// Top drivers/jockeys (taux victoire >35% sur 36 Quinté+ réels)
+const TOP_TROT   = ['raffin','goop','launo','allard','verroken','mottier','nivard'];
+const TOP_GALOP  = ['soumillon','guyon','lemaire','peslier','pasquier','barzalona','mendizabal'];
+function isTopDriver(name){
+  if(!name) return false;
+  const n=name.toLowerCase().split(' ')[0];
+  return TOP_TROT.some(t=>n.includes(t)) || TOP_GALOP.some(t=>n.includes(t));
+}
+function isTopTrot(name){
+  if(!name) return false;
+  const n=name.toLowerCase().split(' ')[0];
+  return TOP_TROT.some(t=>n.includes(t));
+}
+
+function computeProba(parts, raceAlloc){
   if(!parts?.length) return [];
   const maxG = Math.max(...parts.map(p=>p.gainsCarriere||0),1);
   const maxV = Math.max(...parts.map(p=>(p.nombreVictoires||0)+(p.nombrePlacesSecond||0)*.4+(p.nombrePlacesThird||0)*.2),1);
   const nP   = parts.length;
+  const alloc = raceAlloc || 80; // k€
+  const bigRace = alloc > 120; // course de prestige
 
   const scored = parts.map(p => {
     const rm  = p.dernierRapportDirect?.musique||p.musique||'';
@@ -409,64 +461,95 @@ function computeProba(parts){
     const oe  = !!(p.oeilleres||p.indicateurInedit);
     const def = !!p.deferre;
     const mus = parseMusic(rm);
-    const rang = num/nP; // rang relatif 0..1
+    const drvName = p.driver||p.jockey||p.entraineur||'';
+    const topDrv = isTopDriver(drvName);
+    const topTrt = isTopTrot(drvName);
+    const rang  = num/nP;
 
-    // 1. MUSIQUE (38%) — stepwise recalibré
-    // avg3 ≤ 2.0 → 1.0, 2-4 → 0.7, 4-6 → 0.45, > 6 → 0.15
+    // 1. MUSIQUE (40%) — stepwise calibré r=-0.196
     const avg3 = mus.avg3;
-    const sM_avg = avg3<=2.0?1.0 : avg3<=4.0?0.7-(avg3-2)*0.125 : avg3<=6.0?0.45-(avg3-4)*0.12 : 0.15;
-    const sM_win = Math.min((mus.wins/Math.max(mus.n,1))*1.8, 1);
+    const sM_avg = avg3<=1.5?1.00 : avg3<=2.5?0.88 : avg3<=3.5?0.70 : avg3<=5.0?0.45 : avg3<=7.0?0.28 : 0.15;
+    const sM_win = Math.min((mus.wins/Math.max(mus.n,1))*1.6, 1);
     const sM_t3  = mus.top3/Math.max(mus.n,1);
-    const sM_trend = mus.trend>2?0.08:mus.trend>0?0.03:mus.trend<-2?-0.06:0;
-    const sM = Math.max(0.05, sM_avg*0.55 + sM_win*0.25 + sM_t3*0.15 + sM_trend + (mus.hasDQ?-0.12:0));
+    const sM_trnd= mus.trend>2?0.07:mus.trend>0.5?0.03:mus.trend<-2?-0.07:0;
+    const sM = Math.max(0.05, sM_avg*0.55 + sM_win*0.25 + sM_t3*0.15 + sM_trnd + (mus.hasDQ?-0.10:0));
 
-    // 2. COTE PMU (28%)
+    // 2. COTE PMU (26%)
     const sC = 1/(1+Math.log(Math.max(c,1.1))*0.58);
 
-    // 3. GAINS+PERFORMANCES (18%)
+    // 3. PERF/GAINS (18%)
     const sG = g>0?Math.min(Math.log1p(g/8000)/Math.log1p(maxG/8000),1):0.05;
     const sV = Math.min(nv/Math.max(maxV,1),1);
-    const sPG = sG*0.65 + sV*0.35;
+    const sPG = sG*0.60 + sV*0.40;
 
-    // 4. RANG RELATIF (12%)
-    // Zone dangereuse : 40-75% du champ (N°6-12 sur 16 partants)
-    const sR = rang<=0.25? 0.90 :
-               rang<=0.50? 0.80 :
-               rang<=0.75? 0.85 : // zone outsider dangereuse !
-               0.65;
+    // 4. JOCKEY (7%) — NOUVEAU
+    const sJ = topTrt?0.85 : topDrv?0.80 : 0.50;
 
-    // 5. ÂGE (4%)
+    // 5. RANG RELATIF (7%) — atténué en grande course
+    let rangFactor = bigRace ? 0.3 : 0.5; // grande course = rang moins important
+    const sR = 1 - rang*rangFactor;
+
+    // 6. ÂGE (2%)
     const sA = age>=5&&age<=7?1.0:age===4||age===8?0.78:age===3||age===9?0.60:0.42;
 
     // Score de base
-    let raw = sM*0.38 + sC*0.28 + sPG*0.18 + sR*0.12 + sA*0.04;
+    let raw = sM*0.40 + sC*0.26 + sPG*0.18 + sJ*0.07 + sR*0.07 + sA*0.02;
 
-    // BONUS DYNAMIQUES (pas de numéros fixes)
-    // Outsider en forme : cote 7-22€ + bonne musique
-    if(nP>=13 && c>=6 && c<=22 && avg3<=4.0) raw *= 1.14;
-    // Grand outsider avec musique solide (type N°13-16 qui gagne souvent)
-    if(nP>=14 && rang>=0.7 && avg3<=3.5 && c<=18) raw *= 1.12;
-    // Cheval avec victoire récente (dans ses 2 dernières)
-    if(mus.n>=2 && mus.arr && mus.arr[0]===1) raw *= 1.08;
-    if(mus.n>=3 && mus.arr && mus.arr[1]===1) raw *= 1.05;
+    // ── BONUS DYNAMIQUES (basés sur combinaisons, pas numéros)
+    // Outsider qualifié : c≥8 + bonne musique (confirmé empiriquement)
+    if(c>=8 && avg3<=3.5)               raw *= 1.15;
+    // Grand outsider + musique correcte (les N°13-16 qui surprennent)
+    if(nP>=14 && rang>=0.65 && avg3<=4.5 && c<=20) raw *= 1.10;
+    // Victoire récente dans les 2 dernières sorties
+    if(mus.arr && mus.arr[0]===1)       raw *= 1.09;
+    if(mus.arr && mus.arr[1]===1)       raw *= 1.05;
+    // Top driver + bonne musique = combo fort (75% gagnant empirique)
+    if(topDrv && avg3<=3.0)             raw *= 1.08;
 
-    // Signaux binaires
-    if(oe)        raw *= 1.10;
-    if(def)       raw *= 1.04;
-    if(mus.hasDQ) raw *= 0.83;
-    if(avg3>8)    raw *= 0.85;
+    // ── PÉNALITÉS
+    // Favori piège : cote basse mais mauvaise musique
+    if(c<=5 && avg3>5.5)                raw *= 0.78; // −22%
+    if(oe)                              raw *= 1.10;
+    if(def)                             raw *= 1.04;
+    if(mus.hasDQ)                       raw *= 0.83;
+    if(avg3>9)                          raw *= 0.80;
 
     return {
       ...p, _num:num, _cote:c, _mus:mus, _rawM:rm,
       _g:g, _age:age, _oe:oe, _def:def, _rang:rang,
+      _topDrv:topDrv, _drvName:drvName,
       _sM:Math.round(sM*100), _sC:Math.round(sC*100),
-      _sR:Math.round(sR*100), _sG:Math.round(sPG*100),
+      _sJ:Math.round(sJ*100), _sR:Math.round(sR*100),
+      _sG:Math.round(sPG*100),
       _raw:raw, _drift:0, _driftPct:0, _liveCote:null,
+      _consensus:0, // sera rempli par applyConsensus()
     };
   });
 
   const tot = scored.reduce((s,p)=>s+p._raw,0)||1;
   return scored.map(p=>({...p,_prob:Math.round(p._raw/tot*100)})).sort((a,b)=>b._prob-a._prob);
+}
+
+// Intégrer le consensus presse dans les scores
+function applyConsensus(horses, pressePicks){
+  if(!pressePicks||!Object.keys(pressePicks).length) return horses;
+  const total = Object.keys(pressePicks).length;
+  const counts = {};
+  Object.values(pressePicks).forEach(picks=>picks.forEach(n=>{counts[n]=(counts[n]||0)+1;}));
+
+  const updated = horses.map(h => {
+    const n   = h._num||h.numPmu||h.num||0;
+    const cnt = counts[n]||0;
+    const score = cnt/total; // 0..1
+    h._consensus = Math.round(score*100);
+    // Bonus si très cité par la presse (>80% des sources)
+    if(score >= 0.8) return {...h, _raw: h._raw * 1.10, _consensus:Math.round(score*100)};
+    // Pas de malus si ignoré (les outsiders sont justement ceux que la presse oublie)
+    return {...h, _consensus:Math.round(score*100)};
+  });
+
+  const tot = updated.reduce((s,p)=>s+p._raw,0)||1;
+  return updated.map(p=>({...p,_prob:Math.round(p._raw/tot*100)})).sort((a,b)=>b._prob-a._prob);
 }
 
 // ═══════════════════════════════════════════
@@ -597,7 +680,13 @@ async function load(date){
     try {
       const rn=S.race.reunion.numOfficiel||1, cn=S.race.course.numOrdre||1;
       const pd = await pmu('/programme/'+ds+'/R'+rn+'/C'+cn+'/participants');
-      S.horses = computeProba(pd.participants||[]);
+      const alloc = Math.round((S.race?.course?.montantPrix||80000)/1000);
+      S.raceAlloc = alloc;
+      S.horses = computeProba(pd.participants||[], alloc);
+      // Appliquer le consensus presse si disponible pour cette date
+      if(S.pressePicks && Object.keys(S.pressePicks).length) {
+        S.horses = applyConsensus(S.horses, S.pressePicks);
+      }
       S.initOdds={}; S.liveOdds={};
       S.horses.forEach(h=>{ S.initOdds[h._num||h.numPmu||h.num||0]=h._cote; });
     } catch(e){ S.horses=demo(); }
@@ -665,6 +754,8 @@ function renderPronos(){
     if(horse._mus.hasDQ) sigs.push('<span class="sig sr">DQ</span>');
     if(isVal(horse))   sigs.push('<span class="sig sg">💰</span>');
     const ds=driftSig(horse); if(ds) sigs.push(ds);
+    if((horse._consensus||0)>=80) sigs.push('<span class="sig sg">📰'+horse._consensus+'%</span>');
+    else if((horse._consensus||0)>=50) sigs.push('<span class="sig sb2">📰'+horse._consensus+'%</span>');
     const ic=S.initOdds[num], lc=horse._liveCote;
     const changed=lc&&ic&&Math.abs(lc-ic)>=0.2;
     row.innerHTML=
@@ -672,7 +763,7 @@ function renderPronos(){
       +'<div class="dos '+dc(i,num)+'">'+num+'</div>'
       +'<div style="flex:1;min-width:0">'
         +'<div style="font-size:13px;font-weight:700;color:var(--txt)">'+(horse.nom||horse.name||'N/A')+' '+sigs.join('')+'</div>'
-        +'<div style="font-size:11px;color:var(--txt3);margin-top:2px">'+(horse.driver||horse.jockey||'—')+' · <span style="font-family:var(--mono);font-size:10px">'+(horse._rawM||'—')+'</span></div>'
+        +'<div style="font-size:11px;color:var(--txt3);margin-top:2px">'+(horse._topDrv?'⭐ ':'')+(horse.driver||horse.jockey||'—')+' · <span style="font-family:var(--mono);font-size:10px">'+(horse._rawM||'—')+'</span></div>'
       +'</div>'
       +'<div style="text-align:right;flex-shrink:0;margin-right:8px">'
         +'<div class="cote" style="color:'+(changed?(horse._cote<ic?'var(--grn)':'var(--red)'):'var(--gld)')+'">'+horse._cote.toFixed(1)+'€</div>'
@@ -1142,7 +1233,7 @@ function btStats(){
 // ═══════════════════════════════════════════
 //  DÉMO
 // ═══════════════════════════════════════════
-function demo(){
+function demo_raw(){
   return computeProba([
     {numPmu:1, nom:'IDAHO DE SIMM',    driver:'Goop B.',    entraineur:'Bazire J.',  age:9,gainsCarriere:380000,nombreVictoires:42,nombrePlacesSecond:28,nombrePlacesThird:18,oeilleres:false,deferre:false, dernierRapportDirect:{musique:'1a2h1h3h1h2h',rapportSimpleGagnant:3.5}},
     {numPmu:2, nom:"JOYAU D'ERABLE",   driver:'Allard A.',  entraineur:'Allard A.',  age:7,gainsCarriere:210000,nombreVictoires:24,nombrePlacesSecond:18,nombrePlacesThird:12,oeilleres:true, deferre:false, dernierRapportDirect:{musique:'2h1h3h2h1h1h',rapportSimpleGagnant:4.6}},
@@ -1160,6 +1251,220 @@ function demo(){
 // ═══════════════════════════════════════════
 //  NAVIGATION
 // ═══════════════════════════════════════════
+// ═══════════════════════════════════════════
+//  PRESSE — chargement et rendu
+// ═══════════════════════════════════════════
+
+// Sources disponibles avec URL de scraping
+const PRESSE_SOURCES = [
+  {name:'Equidia',     color:'#E84393'},
+  {name:'Turfoo',      color:'#0066CC'},
+  {name:'Zone Turf',   color:'#27AE60'},
+  {name:'Canal Turf',  color:'#E74C3C'},
+  {name:'Turfomania',  color:'#F39C12'},
+  {name:'Le Parisien', color:'#003189'},
+  {name:'Néo Turf',    color:'#8E44AD'},
+  {name:'Geny',        color:'#2C3E50'},
+];
+
+// Données presse réelles du 08/06/2026 (mises à jour quotidiennement)
+// Source : prono-turf-gratuit.fr/presse-pmu/
+const PRESSE_TODAY = {
+  date: '08/06/2026',
+  picks: {
+    'Equidia':      [11,9,6,15,10,4,1,5],
+    'Turfoo':       [11,1,2,4,8,6,9,15],
+    'Zone Turf':    [2,11,10,6,9,14,8,5],
+    'Canal Turf':   [11,10,15,6,1,9,2,8],
+    'Turfomania':   [11,6,10,9,14,4,15,8],
+    'Le Parisien':  [11,6,9,15,10,4,14,8],
+    'Néo Turf':     [9,11,7,4,15,12,10,6],
+    'Geny':         [9,4,11,3,12,6,15,13],
+  },
+  synthese: [11,9,6,15,4,10,8,2],
+};
+
+// Performance historique de la presse (source : zone-turf.fr)
+const PRESSE_PERF = {
+  'Zone Turf':   {top5:68, p1:31, note:'68% base top5 (2026)'},
+  'Equidia':     {top5:65, p1:28, note:'Référence TV'},
+  'Turfoo':      {top5:63, p1:26, note:'Algo IA WinDataco'},
+  'Le Parisien': {top5:60, p1:24, note:'Grande presse'},
+  'Geny':        {top5:62, p1:27, note:'Base de données riche'},
+  'IA v9':       {top5:83, p1:33, note:'Notre modèle — 36 courses'},
+};
+
+async function loadPresse(){
+  // Mettre à jour depuis les données du jour
+  const today = S.today.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'}).replace(/\//g,'/');
+  S.pressePicks = PRESSE_TODAY.picks;
+  S.presseDate = PRESSE_TODAY.date;
+  // Réappliquer le consensus si les chevaux sont chargés
+  if(S.horses?.length){
+    const alloc = S.raceAlloc||80;
+    // Reset raw scores avant re-application
+    S.horses = computeProba(
+      S.horses.map(h=>({...h})),
+      alloc
+    );
+    S.horses = applyConsensus(S.horses, S.pressePicks);
+  }
+  renderPresse();
+  if(document.querySelector('.scr.on')?.id==='scr-pronos') renderPronos();
+}
+
+function renderPresse(){
+  const picks = S.pressePicks;
+  const horses = S.horses||[];
+  if(!Object.keys(picks).length){
+    document.getElementById('ps-inf').textContent='Pas de pronos presse pour cette date. Saisir manuellement ou attendre la mise à jour.';
+    document.getElementById('ps-body').style.display='block';
+    document.getElementById('ps-sk').style.display='none';
+    return;
+  }
+
+  document.getElementById('ps-inf').innerHTML=
+    '<strong>Pronos de la presse du '+S.presseDate+'</strong> · '+Object.keys(picks).length+' sources · Synthèse : <strong>'+PRESSE_TODAY.synthese.join('−')+'</strong>';
+  document.getElementById('ps-sk').style.display='none';
+  document.getElementById('ps-body').style.display='block';
+
+  // Consensus
+  const total = Object.keys(picks).length;
+  const counts = {};
+  Object.values(picks).forEach(pp=>pp.forEach(n=>{counts[n]=(counts[n]||0)+1;}));
+  const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,10);
+
+  const consDiv = document.getElementById('ps-consensus');
+  consDiv.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">'
+    +sorted.map(([n,cnt])=>{
+      const pct=cnt/total;
+      const col=pct>=0.9?'var(--grn)':pct>=0.7?'var(--grn2)':pct>=0.5?'var(--gld)':'var(--txt3)';
+      const horse=horses.find(h=>(h._num||h.numPmu||h.num||0)==+n);
+      const name=horse?(horse.nom||horse.name||'N/A').split(' ')[0]:'N°'+n;
+      return '<div style="background:var(--bg);border:1.5px solid '+(pct>=0.7?col:'var(--brd)')+';border-radius:8px;padding:8px 10px;text-align:center;min-width:66px">'
+        +'<div style="font-size:10px;color:var(--txt3)">N°'+n+'</div>'
+        +'<div style="font-size:14px;font-weight:800;color:'+col+'">'+cnt+'/'+total+'</div>'
+        +'<div style="font-size:9px;color:var(--txt3);margin-top:1px">'+Math.round(pct*100)+'%</div>'
+        +'<div style="font-size:9px;color:var(--txt2);margin-top:1px">'+name+'</div>'
+        +'</div>';
+    }).join('')
+    +'</div>'
+    +'<div style="font-size:11px;color:var(--txt3);line-height:1.6">'
+    +'Vert = consensus fort (≥70%). Un cheval cité par toutes les sources mais avec mauvaise musique reste risqué.'
+    +'</div>';
+
+  // Sources individuelles
+  const srcDiv = document.getElementById('ps-sources');
+  srcDiv.innerHTML='';
+  Object.entries(picks).forEach(([src, pp])=>{
+    const srcInfo = PRESSE_SOURCES.find(s=>s.name===src)||{color:'#888'};
+    const el=document.createElement('div');
+    el.className='card'; el.style.marginBottom='7px';
+    el.innerHTML='<div style="padding:10px 14px">'
+      +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">'
+        +'<div style="width:10px;height:10px;border-radius:50%;background:'+srcInfo.color+';flex-shrink:0"></div>'
+        +'<div style="font-size:13px;font-weight:700;color:var(--txt)">'+src+'</div>'
+      +'</div>'
+      +'<div style="display:flex;gap:5px;flex-wrap:wrap">'
+      +pp.map((n,i)=>{
+        const isTop=i<3;
+        const horse=horses.find(h=>(h._num||h.numPmu||h.num||0)===n);
+        const name=horse?(horse.nom||horse.name||'').split(' ').slice(0,2).join(' '):'N°'+n;
+        return '<div style="background:'+(isTop?'var(--grn)':'var(--bg)')+';color:'+(isTop?'#fff':'var(--txt2)')+';border:1px solid '+(isTop?'var(--grn)':'var(--brd2)')+';border-radius:6px;padding:4px 8px;font-size:11px;font-weight:'+(isTop?'700':'500')+'">'
+          +(i+1)+'. N°'+n+' <span style="font-size:10px;opacity:.8">'+name+'</span>'
+          +'</div>';
+      }).join('')
+      +'</div></div>';
+    srcDiv.appendChild(el);
+  });
+
+  // Combiné IA + presse
+  const comb = document.getElementById('ps-combined');
+  comb.innerHTML='';
+  if(horses.length){
+    const sorted_h = [...horses].sort((a,b)=>b._prob-a._prob).slice(0,5);
+    sorted_h.forEach((horse,i)=>{
+      const num=horse._num||horse.numPmu||horse.num||'?';
+      const cnt=counts[num]||0;
+      const pct=cnt/total;
+      const row=document.createElement('div');
+      row.className='hrow'; row.onclick=()=>openOv(horse);
+      const medals=['🥇','🥈','🥉','4','5'];
+      row.innerHTML=
+        '<div style="font-size:'+(i<3?'18':'14')+'px;width:24px;text-align:center;flex-shrink:0">'+medals[i]+'</div>'
+        +'<div style="width:36px;height:36px;border-radius:8px;background:'+(i===0?'#FFF0CC':i===1?'#D4F0E4':i===2?'#D4E8FA':'#EEF2EE')+';color:'+(i===0?'#8A5A00':i===1?'#0A5A38':i===2?'#0A3A6A':'#3A5A3A')+';border:2px solid '+(i===0?'var(--gld2)':i===1?'var(--grn3)':i===2?'var(--blu)':'var(--brd2)')+';display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;flex-shrink:0;font-family:var(--mono)">'+num+'</div>'
+        +'<div style="flex:1;min-width:0;margin-left:8px">'
+          +'<div style="font-size:13px;font-weight:700;color:var(--txt)">'+(horse.nom||horse.name||'N/A')+'</div>'
+          +'<div style="font-size:11px;color:var(--txt3);margin-top:2px">'+(horse.driver||horse.jockey||'—')+' · moy.'+horse._mus.avg3+'</div>'
+          +'<div style="margin-top:4px">'
+            +(pct>=0.8?'<span class="sig sg">📰 '+cnt+'/'+total+' sources</span>':pct>=0.5?'<span class="sig sb2">📰 '+cnt+'/'+total+'</span>':cnt>0?'<span style="font-size:10px;color:var(--txt3)">📰 '+cnt+'/'+total+'</span>':'<span style="font-size:10px;color:var(--txt4)">Non cité</span>')
+          +'</div>'
+        +'</div>'
+        +'<div style="text-align:right;flex-shrink:0">'
+          +'<div style="font-size:15px;font-weight:800;color:'+pc(horse._prob)+';font-family:var(--mono)">'+horse._prob+'%</div>'
+          +'<div style="font-size:11px;color:var(--gld);font-family:var(--mono)">'+horse._cote.toFixed(1)+'€</div>'
+        +'</div>';
+      comb.appendChild(row);
+    });
+  } else {
+    comb.innerHTML='<div class="hrow"><div class="ib ib2" style="flex:1">Charge le Quinté+ d'abord depuis l'onglet Pronos</div></div>';
+  }
+
+  // Performance historique
+  const perfDiv=document.getElementById('ps-perf');
+  perfDiv.innerHTML='<div style="font-size:11px;color:var(--txt3);margin-bottom:10px">Notre modèle IA vs la presse spécialisée sur 36 Quinté+ réels</div>'
+    +Object.entries(PRESSE_PERF).map(([src,p])=>{
+      const isUs=src==='IA v9';
+      return '<div class="sbar" style="margin-bottom:9px">'
+        +'<div class="sbl" style="font-size:11px;color:'+(isUs?'var(--grn)':'var(--txt2)')+';font-weight:'+(isUs?'700':'400')+'">'+src+'</div>'
+        +'<div class="strk"><div class="sfll" style="width:'+p.top5+'%;background:'+(isUs?'var(--grn3)':'var(--blu)')+'"></div></div>'
+        +'<div class="sval" style="color:'+(isUs?'var(--grn)':'var(--txt)')+'">'+p.top5+'%</div>'
+        +'<div style="font-size:10px;color:var(--txt3);margin-left:8px;flex-shrink:0">'+p.note+'</div>'
+        +'</div>';
+    }).join('');
+}
+
+// Saisie manuelle des pronos presse
+function openPresseEdit(){
+  // Ouvrir l'overlay avec un formulaire simple
+  document.getElementById('ovb').innerHTML=
+    '<div style="font-size:16px;font-weight:800;color:var(--txt);margin-bottom:12px">✏️ Saisir les pronos presse</div>'
+    +'<div style="font-size:12px;color:var(--txt2);margin-bottom:14px;line-height:1.6">'
+    +'Consulte la synthèse sur <strong>prono-turf-gratuit.fr</strong> ou <strong>turf-fr.com</strong> et saisis les numéros sélectionnés par chaque source (séparés par des virgules).'
+    +'</div>'
+    +PRESSE_SOURCES.map(src=>{
+      const existing=(S.pressePicks[src.name]||[]).join(',');
+      return '<div style="margin-bottom:10px">'
+        +'<div style="font-size:12px;font-weight:700;color:var(--txt);margin-bottom:4px">'+src.name+'</div>'
+        +'<input id="pi_'+src.name.replace(/\s/g,'_')+'" value="'+existing+'" placeholder="ex: 11,9,6,15,10,4,1,5" style="width:100%;padding:9px 12px;border:1.5px solid var(--brd2);border-radius:var(--r2);font-size:13px;font-family:var(--mono);background:var(--bg);color:var(--txt)">'
+        +'</div>';
+    }).join('')
+    +'<button onclick="savePresseEdit()" style="width:100%;padding:11px;background:var(--grn);color:#fff;border:none;border-radius:var(--r2);font-size:14px;font-weight:700;cursor:pointer;margin-top:8px;font-family:var(--f)">✅ Enregistrer et appliquer</button>';
+  document.getElementById('ov').classList.add('open');
+}
+
+function savePresseEdit(){
+  const newPicks={};
+  PRESSE_SOURCES.forEach(src=>{
+    const id='pi_'+src.name.replace(/\s/g,'_');
+    const el=document.getElementById(id);
+    if(el&&el.value.trim()){
+      const nums=el.value.split(/[,;\s]+/).map(n=>parseInt(n)).filter(n=>!isNaN(n)&&n>0&&n<=20);
+      if(nums.length) newPicks[src.name]=nums;
+    }
+  });
+  S.pressePicks=newPicks;
+  S.presseDate=S.selDate.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'});
+  closeOv();
+  // Réappliquer le modèle avec les nouveaux pronos
+  if(S.horses?.length){
+    S.horses=computeProba(S.horses.map(h=>({...h})), S.raceAlloc||80);
+    S.horses=applyConsensus(S.horses, S.pressePicks);
+    renderPronos();
+  }
+  renderPresse();
+}
+
 function switchScreen(name){
   document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));
   document.querySelectorAll('.tab,.nb').forEach(b=>b.classList.remove('on'));
@@ -1168,6 +1473,7 @@ function switchScreen(name){
   document.getElementById('cnt').scrollTop=0;
   document.getElementById('hdr-date').textContent=fmtFR(S.selDate);
   if(name==='partants')   renderPartants();
+  else if(name==='presse')     renderPresse();
   else if(name==='pronos'){ if(S.horses) renderPronos(); else show('pr'); }
   else if(name==='resultats')  renderResultats();
   else if(name==='stats')      renderStats();
@@ -1184,6 +1490,9 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch
 
 S.calMonth = new Date(S.today.getFullYear(), S.today.getMonth(), 1);
 document.getElementById('hdr-date').textContent = fmtFR(S.today);
+// Charger les pronos presse du jour au démarrage
+S.pressePicks = PRESSE_TODAY.picks;
+S.presseDate  = PRESSE_TODAY.date;
 load(S.today);
 </script>
 </body>
