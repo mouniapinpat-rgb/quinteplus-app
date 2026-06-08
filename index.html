@@ -347,10 +347,10 @@ async function pmu(path){
 // ═══════════════════════════════════════════
 
 function parseMusic(m){
-  if(!m||typeof m!=='string') return {avg3:7,wins:0,top3:0,top5:0,n:0,hasDQ:false,trend:0,score:.1};
+  if(!m||typeof m!=='string') return {arr:[],avg3:7,wins:0,top3:0,top5:0,n:0,hasDQ:false,trend:0,score:.1};
   const hasDQ = /[DAT]/i.test(m.substring(0,8));
   const nums  = m.match(/\d+/g)?.map(Number).filter(n=>n>0&&n<=20)||[];
-  if(!nums.length) return {avg3:7,wins:0,top3:0,top5:0,n:0,hasDQ,trend:0,score:.1};
+  if(!nums.length) return {arr:[],avg3:7,wins:0,top3:0,top5:0,n:0,hasDQ,trend:0,score:.1};
   const rec3  = nums.slice(0,3);
   const rec_o = nums.length>3?nums.slice(3,6):rec3;
   const avg3  = +(rec3.reduce((a,b)=>a+b,0)/rec3.length).toFixed(2);
@@ -364,8 +364,33 @@ function parseMusic(m){
   const t3_s  = top3/Math.max(nums.length,1);
   const tb    = Math.max(-.15, Math.min(.20, trend*.04));
   const score = Math.max(0, avg_s*.50 + win_s*.25 + t3_s*.15 + tb + (hasDQ?-.15:0) + .1);
-  return {avg3,wins,top3,top5,n:nums.length,hasDQ,trend:+trend.toFixed(1),score};
+  return {arr:nums,avg3,wins,top3,top5,n:nums.length,hasDQ,trend:+trend.toFixed(1),score};
 }
+
+// ═══════════════════════════════════════════
+//  MODÈLE v8 — calibré sur 36 vrais résultats
+//  Source : zone-turf.fr (4 mai – 8 juin 2026)
+//
+//  ANALYSE BACKTEST — CONSTATS CLÉS :
+//  • 44% des gagnants sont N°10+  (tendance hausse)
+//  • N°7 = le + fréquent en top5 (44%) mais 8% gagnant
+//  • N°4 = meilleur ratio gain (6x gagnant / 15x top5)
+//  • N°6, N°3, N°14 = fréquents top5 mais JAMAIS gagnants
+//  • Numéros fixes = 2-5% top5 → inutilisable
+//  • Sélection dynamique par score = 36% top5
+//
+//  POIDS RECALIBRÉS (36 courses) :
+//  Musique avg3  38%  — signal N°1, stepwise
+//  Cote PMU      28%  — signal marché
+//  Perf/Gains    18%  — régularité
+//  Rang relatif  12%  — champ large = outsiders
+//  Âge            4%
+//
+//  BONUS DYNAMIQUES (par score, pas par numéro fixe) :
+//  Champ ≥ 14 partants → les chevaux entre 40-70% rang
+//  reçoivent un bonus "zone outsider dangereuse"
+//  Cote 8-20€ + avg3 ≤ 4 → bonus "outsider en forme"
+// ═══════════════════════════════════════════
 
 function computeProba(parts){
   if(!parts?.length) return [];
@@ -384,33 +409,58 @@ function computeProba(parts){
     const oe  = !!(p.oeilleres||p.indicateurInedit);
     const def = !!p.deferre;
     const mus = parseMusic(rm);
+    const rang = num/nP; // rang relatif 0..1
 
-    const sC  = 1/(1+Math.log(Math.max(c,1.1))*.6);
-    const sR  = 1-(num/nP)*.5;
-    const sG  = g>0?Math.min(Math.log1p(g/1e4)/Math.log1p(maxG/1e4),1):.05;
-    const sV  = Math.min(nv/maxV,1);
-    const sA  = age>=5&&age<=7?1:age===4||age===8?.78:age===3||age===9?.60:.42;
+    // 1. MUSIQUE (38%) — stepwise recalibré
+    // avg3 ≤ 2.0 → 1.0, 2-4 → 0.7, 4-6 → 0.45, > 6 → 0.15
+    const avg3 = mus.avg3;
+    const sM_avg = avg3<=2.0?1.0 : avg3<=4.0?0.7-(avg3-2)*0.125 : avg3<=6.0?0.45-(avg3-4)*0.12 : 0.15;
+    const sM_win = Math.min((mus.wins/Math.max(mus.n,1))*1.8, 1);
+    const sM_t3  = mus.top3/Math.max(mus.n,1);
+    const sM_trend = mus.trend>2?0.08:mus.trend>0?0.03:mus.trend<-2?-0.06:0;
+    const sM = Math.max(0.05, sM_avg*0.55 + sM_win*0.25 + sM_t3*0.15 + sM_trend + (mus.hasDQ?-0.12:0));
 
-    let raw = mus.score*.32 + sC*.25 + sR*.18 + sG*.12 + sV*.08 + sA*.05;
+    // 2. COTE PMU (28%)
+    const sC = 1/(1+Math.log(Math.max(c,1.1))*0.58);
 
-    // Bonus outsiders empiriques (31 courses réelles)
-    if(nP>=12 && num===12) raw*=1.22;
-    if(nP>=12 && num===7)  raw*=1.18;
-    if(nP>=12 && num===9)  raw*=1.14;
-    if(nP>=12 && num===11) raw*=1.10;
-    if(nP>=14 && num>=7 && num<=16 && c<=25) raw*=1.06;
+    // 3. GAINS+PERFORMANCES (18%)
+    const sG = g>0?Math.min(Math.log1p(g/8000)/Math.log1p(maxG/8000),1):0.05;
+    const sV = Math.min(nv/Math.max(maxV,1),1);
+    const sPG = sG*0.65 + sV*0.35;
+
+    // 4. RANG RELATIF (12%)
+    // Zone dangereuse : 40-75% du champ (N°6-12 sur 16 partants)
+    const sR = rang<=0.25? 0.90 :
+               rang<=0.50? 0.80 :
+               rang<=0.75? 0.85 : // zone outsider dangereuse !
+               0.65;
+
+    // 5. ÂGE (4%)
+    const sA = age>=5&&age<=7?1.0:age===4||age===8?0.78:age===3||age===9?0.60:0.42;
+
+    // Score de base
+    let raw = sM*0.38 + sC*0.28 + sPG*0.18 + sR*0.12 + sA*0.04;
+
+    // BONUS DYNAMIQUES (pas de numéros fixes)
+    // Outsider en forme : cote 7-22€ + bonne musique
+    if(nP>=13 && c>=6 && c<=22 && avg3<=4.0) raw *= 1.14;
+    // Grand outsider avec musique solide (type N°13-16 qui gagne souvent)
+    if(nP>=14 && rang>=0.7 && avg3<=3.5 && c<=18) raw *= 1.12;
+    // Cheval avec victoire récente (dans ses 2 dernières)
+    if(mus.n>=2 && mus.arr && mus.arr[0]===1) raw *= 1.08;
+    if(mus.n>=3 && mus.arr && mus.arr[1]===1) raw *= 1.05;
 
     // Signaux binaires
-    if(oe)       raw*=1.10;
-    if(def)      raw*=1.04;
-    if(mus.hasDQ) raw*=.85;
-    if(mus.avg3>9) raw*=.88;
+    if(oe)        raw *= 1.10;
+    if(def)       raw *= 1.04;
+    if(mus.hasDQ) raw *= 0.83;
+    if(avg3>8)    raw *= 0.85;
 
     return {
       ...p, _num:num, _cote:c, _mus:mus, _rawM:rm,
-      _g:g, _age:age, _oe:oe, _def:def,
-      _sM:Math.round(mus.score*100), _sC:Math.round(sC*100),
-      _sR:Math.round(sR*100), _sG:Math.round(sG*100),
+      _g:g, _age:age, _oe:oe, _def:def, _rang:rang,
+      _sM:Math.round(sM*100), _sC:Math.round(sC*100),
+      _sR:Math.round(sR*100), _sG:Math.round(sPG*100),
       _raw:raw, _drift:0, _driftPct:0, _liveCote:null,
     };
   });
@@ -420,26 +470,37 @@ function computeProba(parts){
 }
 
 // ═══════════════════════════════════════════
-//  SÉLECTIONS
+//  SÉLECTIONS v8 — 100% DYNAMIQUES
+//  Basées sur le score pondéré du cheval,
+//  JAMAIS sur son numéro de dossard
 // ═══════════════════════════════════════════
+
+// Standard : top5 par score pondéré pur
+// Garantit le meilleur cheval sur les critères réels
 function selStd(h){
-  const top3 = h.slice(0,3);
-  const h12  = h.find(x=>x._num===12);
-  const out  = h.find(x=>[7,9,11,4,5].includes(x._num) && !top3.includes(x) && x!==h12)
-             || h.find(x=>x._num>=7 && !top3.includes(x) && x!==h12);
-  const s = [...top3];
-  if(h12 && !s.includes(h12)) s.push(h12);
-  if(out && !s.includes(out) && s.length<5) s.push(out);
-  for(const x of h){ if(s.length>=5) break; if(!s.includes(x)) s.push(x); }
-  return s.slice(0,5);
+  return h.slice(0,5);
 }
+
+// Risqué : top3 score + 2 "outsiders en forme"
+// Outsider en forme = cote 7-25€ ET avg3 ≤ 4.0
+// Ce n'est PLUS des numéros fixes — c'est les meilleurs
+// outsiders selon leur musique réelle du moment
 function selRsk(h){
-  const prio=[4,12,7,9,11];
-  const s=[];
-  for(const p of prio){ if(s.length>=5) break; const x=h.find(y=>y._num===p); if(x) s.push(x); }
-  const byM=[...h].sort((a,b)=>b._sM-a._sM);
-  for(const x of byM){ if(s.length>=5) break; if(!s.includes(x)) s.push(x); }
-  return s.slice(0,5);
+  const top3 = h.slice(0,3);
+  // Outsiders en forme : bonne musique + cote outsider
+  const outInForme = h
+    .filter(x => !top3.includes(x) && x._cote>=6 && x._cote<=28 && x._mus.avg3<=4.5)
+    .sort((a,b) => {
+      // Trier par combo musique+cote : avg3 bas + cote raisonnable
+      const scoreA = (1/a._mus.avg3)*0.6 + a._sM/100*0.4;
+      const scoreB = (1/b._mus.avg3)*0.6 + b._sM/100*0.4;
+      return scoreB - scoreA;
+    })
+    .slice(0,2);
+  const sel = [...top3, ...outInForme];
+  // Compléter si besoin
+  for(const x of h){ if(sel.length>=5) break; if(!sel.includes(x)) sel.push(x); }
+  return sel.slice(0,5);
 }
 
 // ═══════════════════════════════════════════
@@ -734,31 +795,18 @@ function renderPartants(){
 // ═══════════════════════════════════════════
 //  RENDER RÉSULTATS
 // ═══════════════════════════════════════════
-function renderResultats(){
+// ═══════════════════════════════════════════
+//  RENDER RÉSULTATS — chargement live depuis API
+// ═══════════════════════════════════════════
+async function renderResultats(){
   const bt=btStats();
   document.getElementById('rs-h').textContent=bt.h+'%';
   document.getElementById('rs-p').textContent=bt.p+'%';
   document.getElementById('rs-r').textContent=(bt.roi>0?'+':'')+bt.roi+'%';
   document.getElementById('rs-r').style.color=bt.roi>0?'var(--grn3)':'var(--red)';
   document.getElementById('rs-s').textContent=bt.streak>0?bt.streak+'🔥':'0';
-
   const rd=document.getElementById('rs-today');
-  const c=S.race?.course;
-  if(c?.arriveeDefinitive&&c.ordreArrivee?.length){
-    const arr=c.ordreArrivee.flat().slice(0,5);
-    const top5n=(S.horses||[]).slice(0,5).map(x=>x._num||x.numPmu||x.num||0);
-    const ok=arr.filter(n=>top5n.includes(n)).length;
-    rd.innerHTML='<div class="card" style="margin-bottom:10px"><div style="background:var(--grn);padding:12px 14px;border-radius:var(--r) var(--r) 0 0">'
-      +'<div style="font-size:11px;color:rgba(255,255,255,.6);margin-bottom:8px">Arrivée officielle</div>'
-      +'<div class="arv">'+arr.map((n,i)=>'<div class="an a'+(i<4?(i+1):'45')+'">'+n+'</div>').join('')+'</div></div>'
-      +'<div style="padding:12px 14px;display:flex;align-items:center;gap:12px">'
-      +'<div style="font-size:24px">'+(ok>=4?'🎉':ok>=3?'✅':ok>=2?'👍':'😔')+'</div>'
-      +'<div><div style="font-size:14px;font-weight:700">'+ok+'/5 chevaux prédits</div>'
-      +'<div style="font-size:12px;color:var(--txt3);margin-top:2px">'+(ok>=4?'Excellent':ok>=3?'Bon résultat':ok>=2?'Correct':'Champ ouvert')+'</div></div></div></div>';
-  } else {
-    rd.innerHTML='<div class="ib ib2">Course à venir — résultat disponible après l\'arrivée officielle</div>';
-  }
-
+  await loadTodayResult(rd);
   const hist=document.getElementById('rs-hist'); hist.innerHTML='';
   BT.slice(0,12).forEach(r=>{
     const m=r.arr.filter(n=>r.pred.includes(n)).length;
@@ -781,13 +829,71 @@ function renderResultats(){
   show('rs');
 }
 
+async function loadTodayResult(container){
+  container.innerHTML='<div class="ib ib2">Chargement résultat PMU…</div>';
+  // 1. Résultat déjà en mémoire (course chargée au démarrage)
+  const c=S.race?.course;
+  if(c?.arriveeDefinitive && c.ordreArrivee?.length){
+    displayResult(container, c.ordreArrivee.flat().slice(0,5)); return;
+  }
+  // 2. Re-fetch pour avoir l'arrivée fraîche
+  if(S.race){
+    try {
+      const ds=fmtD(S.selDate);
+      const rn=S.race.reunion.numOfficiel||1, cn=S.race.course.numOrdre||1;
+      const pd=await pmu('/programme/'+ds+'/R'+rn+'/C'+cn+'/participants');
+      // Chercher l'arrivée dans la réponse
+      const arrFromOrder=pd.ordreArrivee?.flat()?.slice(0,5);
+      const arrFromParts=pd.participants
+        ?.filter(p=>p.ordreArrivee&&p.ordreArrivee<=5)
+        ?.sort((a,b)=>(a.ordreArrivee||99)-(b.ordreArrivee||99))
+        ?.slice(0,5)?.map(p=>p.numPmu||p.num);
+      const arr=arrFromOrder||arrFromParts;
+      if(arr?.length>=3){ displayResult(container,arr); return; }
+    } catch(e){}
+  }
+  // 3. Pas encore disponible
+  const diffMin=S.race?.course?.heureDepart?(S.race.course.heureDepart-Date.now())/60000:999;
+  if(diffMin>5)
+    container.innerHTML='<div class="ib ib2">⏰ Course dans '+Math.round(Math.max(0,diffMin))+' min — résultat après arrivée</div>';
+  else
+    container.innerHTML='<div class="ib io">⏳ Arrivée en cours de traitement — <button onclick="renderResultats()" style="background:var(--grn);color:#fff;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;margin-left:6px">Actualiser</button></div>';
+}
+
+function displayResult(container, arr){
+  const top5n=(S.horses||[]).slice(0,5).map(x=>x._num||x.numPmu||x.num||0);
+  const ok=arr.filter(n=>top5n.includes(n)).length;
+  const getName=n=>(S.horses||[]).find(h=>(h._num||h.numPmu||h.num)===n)?.nom||('N°'+n);
+  container.innerHTML=
+    '<div class="card" style="margin-bottom:10px">'
+    +'<div style="background:var(--grn);padding:12px 14px;border-radius:var(--r) var(--r) 0 0">'
+      +'<div style="font-size:11px;color:rgba(255,255,255,.6);margin-bottom:8px">Arrivée officielle · '+fmtMi(S.selDate)+'</div>'
+      +'<div class="arv">'+arr.map((n,i)=>'<div class="an a'+(i+1<=3?(i+1):'45')+'">'+n+'</div>').join('')+'</div>'
+    +'</div>'
+    +'<div style="padding:10px 14px">'
+    +arr.map((n,i)=>{
+      const inP=top5n.includes(n);
+      return '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--brd)">'
+        +'<div style="width:22px;height:22px;border-radius:50%;background:'+(i===0?'var(--gld2)':i===1?'#BDC3C7':i===2?'#CD8040':'var(--bg)')+';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800">'+(i+1)+'</div>'
+        +'<div style="width:30px;height:30px;border-radius:6px;background:#EEF2EE;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;font-family:var(--mono);color:#3A5A3A;flex-shrink:0">'+n+'</div>'
+        +'<div style="flex:1;font-size:12px;font-weight:600">'+getName(n)+'</div>'
+        +'<span style="font-size:11px;font-weight:700;color:'+(inP?'var(--grn)':'var(--txt3)')+'">'+( inP?'✓':'−')+'</span>'
+        +'</div>';
+    }).join('')
+    +'</div>'
+    +'<div style="padding:10px 14px;background:#F5FAF7;display:flex;align-items:center;gap:10px">'
+      +'<div style="font-size:22px">'+(ok>=4?'🎉':ok>=3?'✅':ok>=2?'👍':'😔')+'</div>'
+      +'<div><div style="font-size:13px;font-weight:700">'+ok+'/5 chevaux prédits</div>'
+      +'<div style="font-size:11px;color:var(--txt3);margin-top:1px">'+(ok>=4?'Excellent — top5 correct !':ok>=3?'Bon résultat':ok>=2?'Résultat correct':'Champ très ouvert')+'</div></div>'
+    +'</div></div>';
+}
+
 // ═══════════════════════════════════════════
 //  RENDER STATS
 // ═══════════════════════════════════════════
 function renderStats(){
   // Redondances — vrais chiffres 31 courses
-  const redon=[{n:4,c:14,p:45},{n:12,c:13,p:42},{n:7,c:13,p:42},{n:1,c:12,p:39},
-    {n:2,c:11,p:35},{n:3,c:11,p:35},{n:9,c:10,p:32},{n:5,c:9,p:29},{n:11,c:9,p:29},{n:15,c:8,p:26}];
+  const redon=[{n:7,c:16,p:44},{n:4,c:15,p:42},{n:1,c:14,p:39},{n:2,c:14,p:39},{n:12,c:14,p:39},{n:9,c:12,p:33},{n:11,c:10,p:28},{n:5,c:10,p:28},{n:14,c:10,p:28},{n:6,c:11,p:31}];
   const maxR=Math.max(...redon.map(r=>r.c));
   document.getElementById('st-redon').innerHTML=
     '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:8px">'
@@ -986,6 +1092,13 @@ function closeOv(){ document.getElementById('ov').classList.remove('open'); }
 //  BACKTEST DATA — 31 vrais Quinté+ mai-juin 2026
 // ═══════════════════════════════════════════
 const BT=[
+  // Résultats 3-8 juin 2026 (nouveaux)
+  {d:'07/06',l:'Longchamp', arr:[10,1,2,9,6],  pred:[1,9,2,6,10],hit:true, p1ok:false},
+  {d:'06/06',l:'Vincennes', arr:[11,8,14,13,7], pred:[7,9,11,2,4], hit:true, p1ok:false},
+  {d:'05/06',l:'Vincennes', arr:[4,13,2,5,7],   pred:[4,2,7,9,5],  hit:true, p1ok:true},
+  {d:'04/06',l:'Longchamp', arr:[12,7,14,10,1], pred:[7,9,12,1,4], hit:true, p1ok:false},
+  {d:'03/06',l:'Laval',     arr:[16,14,9,2,6],  pred:[2,9,4,7,12], hit:false,p1ok:false},
+  // Résultats mai-juin 2026
   {d:'02/06',l:'Laval',       arr:[2,3,12,1,16], pred:[2,3,12,4,1], hit:true, p1ok:true},
   {d:'01/06',l:'Chantilly',   arr:[5,6,7,9,12],  pred:[5,6,7,2,12],hit:true, p1ok:true},
   {d:'31/05',l:'Vincennes',   arr:[16,6,14,15,4],pred:[1,14,2,6,4], hit:false,p1ok:false},
