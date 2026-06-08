@@ -4,7 +4,6 @@ export async function handler(event) {
   const path = event.queryStringParameters?.path||'';
   if (!path) return {statusCode:400,headers:cors,body:JSON.stringify({error:'path required'})};
 
-  // Cache plus court pour les cotes live (30s) vs données statiques (90s)
   const isLive = path.includes('citations') || path.includes('rapports') || event.queryStringParameters?.live==='1';
   const cacheAge = isLive ? 30 : 90;
 
