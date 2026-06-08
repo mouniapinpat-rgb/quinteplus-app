@@ -1295,22 +1295,42 @@ const PRESSE_PERF = {
 };
 
 async function loadPresse(){
-  // Mettre à jour depuis les données du jour
-  const today = S.today.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'}).replace(/\//g,'/');
-  S.pressePicks = PRESSE_TODAY.picks;
-  S.presseDate = PRESSE_TODAY.date;
+  const psInf = document.getElementById('ps-inf');
+  psInf.innerHTML = '⏳ Récupération des pronos presse en cours…';
+
+  try {
+    // Appel à la Netlify function de scraping
+    const ds = S.selDate.toISOString().slice(0,10);
+    const res = await fetch('/api/presse?date='+ds);
+    const data = await res.json();
+
+    if(data.ok && Object.keys(data.picks).length >= 3){
+      S.pressePicks = data.picks;
+      S.presseDate  = data.date;
+      // Mettre à jour PRESSE_TODAY pour les re-renders
+      PRESSE_TODAY.picks   = data.picks;
+      PRESSE_TODAY.date    = data.date;
+      PRESSE_TODAY.synthese = data.synthese||[];
+      psInf.innerHTML = '✅ <strong>Pronos presse du '+data.date+'</strong> — '
+        +data.nbSources+' sources récupérées automatiquement';
+    } else if(data.error){
+      // Page pas encore publiée (trop tôt le matin) ou date sans Quinté+
+      psInf.innerHTML = '⚠️ Pronos non disponibles pour cette date ('
+        +(data.status===404?'page pas encore publiée — réessaie après 9h':data.error)
+        +') · <button onclick="openPresseEdit()" style="background:var(--grn);color:#fff;border:none;padding:3px 10px;border-radius:5px;cursor:pointer;font-size:11px;margin-left:6px">Saisir manuellement</button>';
+    }
+  } catch(e) {
+    psInf.innerHTML = '❌ Erreur de connexion · '
+      +'<button onclick="openPresseEdit()" style="background:var(--grn);color:#fff;border:none;padding:3px 10px;border-radius:5px;cursor:pointer;font-size:11px;margin-left:6px">Saisir manuellement</button>';
+  }
+
   // Réappliquer le consensus si les chevaux sont chargés
-  if(S.horses?.length){
-    const alloc = S.raceAlloc||80;
-    // Reset raw scores avant re-application
-    S.horses = computeProba(
-      S.horses.map(h=>({...h})),
-      alloc
-    );
+  if(S.horses?.length && Object.keys(S.pressePicks).length){
+    S.horses = computeProba(S.horses.map(h=>({...h})), S.raceAlloc||80);
     S.horses = applyConsensus(S.horses, S.pressePicks);
+    if(document.querySelector('.scr.on')?.id==='scr-pronos') renderPronos();
   }
   renderPresse();
-  if(document.querySelector('.scr.on')?.id==='scr-pronos') renderPronos();
 }
 
 function renderPresse(){
@@ -1473,7 +1493,12 @@ function switchScreen(name){
   document.getElementById('cnt').scrollTop=0;
   document.getElementById('hdr-date').textContent=fmtFR(S.selDate);
   if(name==='partants')   renderPartants();
-  else if(name==='presse')     renderPresse();
+  else if(name==='presse'){
+    renderPresse();
+    // Auto-charger si pas encore chargé pour cette date
+    const todayStr = S.selDate.toLocaleDateString('fr-FR');
+    if(S.presseDate !== todayStr || !Object.keys(S.pressePicks).length) loadPresse();
+  }
   else if(name==='pronos'){ if(S.horses) renderPronos(); else show('pr'); }
   else if(name==='resultats')  renderResultats();
   else if(name==='stats')      renderStats();
@@ -1490,10 +1515,12 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch
 
 S.calMonth = new Date(S.today.getFullYear(), S.today.getMonth(), 1);
 document.getElementById('hdr-date').textContent = fmtFR(S.today);
-// Charger les pronos presse du jour au démarrage
+// Charger les pronos presse du jour en arrière-plan (non-bloquant)
 S.pressePicks = PRESSE_TODAY.picks;
 S.presseDate  = PRESSE_TODAY.date;
 load(S.today);
+// Fetch automatique des pronos presse (après 2s pour ne pas ralentir le boot)
+setTimeout(() => loadPresse(), 2000);
 </script>
 </body>
 </html>
