@@ -1,8 +1,11 @@
 [build]
   publish = "."
   functions = "netlify/functions"
-
 [[redirects]]
   from = "/api/pmu"
   to = "/.netlify/functions/pmu"
+  status = 200
+[[redirects]]
+  from = "/api/presse"
+  to = "/.netlify/functions/presse"
   status = 200
