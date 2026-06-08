@@ -689,8 +689,8 @@ async function load(date){
       }
       S.initOdds={}; S.liveOdds={};
       S.horses.forEach(h=>{ S.initOdds[h._num||h.numPmu||h.num||0]=h._cote; });
-    } catch(e){ S.horses=demo(); }
-  } else { S.horses=demo(); }
+    } catch(e){ S.horses=computeProba(demo_raw(), S.raceAlloc||80); }
+  } else { S.horses=computeProba(demo_raw(), S.raceAlloc||80); }
 
   renderPronos();
   stopLive(); startLive();
@@ -1407,7 +1407,7 @@ function renderPresse(){
       comb.appendChild(row);
     });
   } else {
-    comb.innerHTML='<div class="hrow"><div class="ib ib2" style="flex:1">Charge le Quinté+ d'abord depuis l'onglet Pronos</div></div>';
+    comb.innerHTML='<div class="hrow"><div class="ib ib2" style="flex:1">Charge le Quinté+ — ouvre l\'onglet Pronos</div></div>';
   }
 
   // Performance historique
