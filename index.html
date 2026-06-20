@@ -66,6 +66,27 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);font
 .kv{font-size:16px;font-weight:700;color:#fff;font-family:var(--mono);line-height:1}
 .kl{font-size:9px;color:rgba(255,255,255,.45);text-transform:uppercase;margin-top:2px}
 
+/* HERO — bandeau de fiabilité intégré (remplace les doublons précédents) */
+.hero-rel{display:flex;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.15)}
+.hr-item{display:flex;flex-direction:column;align-items:center;flex:1}
+.hr-v{font-size:15px;font-weight:800;color:var(--gld2);font-family:var(--mono);line-height:1}
+.hr-l{font-size:8px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.04em;margin-top:3px;text-align:center}
+.hr-sep{width:1px;height:24px;background:rgba(255,255,255,.15);flex-shrink:0}
+
+/* LIVE CHIP — un seul indicateur compact, pas de répétition */
+.live-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:20px;font-size:11px;font-weight:600;color:var(--txt2);background:var(--card);border:1px solid var(--brd);margin-bottom:10px}
+.live-chip.on{color:var(--grn);border-color:var(--grn3);background:#E8F7EF}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--txt4);flex-shrink:0}
+.live-chip.on .live-dot{background:var(--grn3);animation:pulse 1.4s infinite}
+.live-time{color:var(--txt3);font-weight:400}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.3)}}
+
+/* FOUND BADGE — cheval confirmé dans l'arrivée officielle */
+.found-badge{display:inline-flex;align-items:center;gap:2px;font-size:9px;font-weight:800;padding:2px 7px;border-radius:10px;background:var(--grn);color:#fff;margin-left:4px;letter-spacing:.02em}
+
+/* COMBO NOTE — discret, remplace l'ancien warning dupliqué */
+.combo-note{font-size:11px;color:var(--txt3);line-height:1.5;padding:8px 2px 10px;border-bottom:1px solid var(--brd);margin-bottom:8px}
+
 /* HORSE ROWS */
 .hrow{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--brd);cursor:pointer;transition:background .1s}
 .hrow:last-child{border:none}
@@ -656,8 +677,9 @@ function show(p){ const l=document.getElementById(p+'-sk'),b=document.getElement
 function renderPronos(){
   const h=S.horses; if(!h?.length) return;
   const r=S.race;
+  const bt=btStats();
 
-  // Hero
+  // Hero — inclut désormais les taux de fiabilité réels du modèle
   const hero=document.getElementById('pr-hero');
   if(r){
     const c=r.course,re=r.reunion;
@@ -670,6 +692,13 @@ function renderPronos(){
       +'<div><div class="kv">'+(c.nombreDeclaresPartants||'?')+'</div><div class="kl">Partants</div></div>'
       +'<div><div class="kv" style="color:var(--gld2)">'+(h[0]._num||h[0].numPmu||h[0].num)+'</div><div class="kl">Favori IA</div></div>'
       +'<div><div class="kv" style="color:#4CD964">'+h[0]._prob+'%</div><div class="kl">Proba.</div></div>'
+      +'</div>'
+      +'<div class="hero-rel">'
+        +'<div class="hr-item"><span class="hr-v">'+bt.h+'%</span><span class="hr-l">top5 validé</span></div>'
+        +'<div class="hr-sep"></div>'
+        +'<div class="hr-item"><span class="hr-v">'+bt.p+'%</span><span class="hr-l">gagnant inclus</span></div>'
+        +'<div class="hr-sep"></div>'
+        +'<div class="hr-item"><span class="hr-v">'+bt.n+'</span><span class="hr-l">courses testées</span></div>'
       +'</div>';
   } else {
     hero.innerHTML='<div class="hero-badge">⭐ QUINTÉ+ — DÉMO</div>'
@@ -677,23 +706,33 @@ function renderPronos(){
       +'<div class="hero-info">📍 Trot Attelé · 2700m · '+h.length+' partants</div>'
       +'<div class="hero-kpis"><div><div class="kv">120k€</div><div class="kl">Allocation</div></div>'
       +'<div><div class="kv" style="color:var(--gld2)">'+(h[0]._num||h[0].numPmu||h[0].num)+'</div><div class="kl">Favori IA</div></div>'
-      +'<div><div class="kv" style="color:#4CD964">'+h[0]._prob+'%</div><div class="kl">Proba.</div></div></div>';
+      +'<div><div class="kv" style="color:#4CD964">'+h[0]._prob+'%</div><div class="kl">Proba.</div></div></div>'
+      +'<div class="hero-rel">'
+        +'<div class="hr-item"><span class="hr-v">'+bt.h+'%</span><span class="hr-l">top5 validé</span></div>'
+        +'<div class="hr-sep"></div>'
+        +'<div class="hr-item"><span class="hr-v">'+bt.p+'%</span><span class="hr-l">gagnant inclus</span></div>'
+        +'<div class="hr-sep"></div>'
+        +'<div class="hr-item"><span class="hr-v">'+bt.n+'</span><span class="hr-l">courses testées</span></div>'
+      +'</div>';
   }
 
-  // Bannière live (seulement si actif ET mouvement)
+  // Statut live — un seul indicateur compact, fusionné (plus de doublon avec les combos)
   const lb = document.getElementById('pr-live-bar');
   if(S.liveActive){
     const hasMv = h.some(x=>Math.abs(x._driftPct||0)>=10);
     const upd   = S.lastUpdate?S.lastUpdate.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):'—';
-    lb.innerHTML = hasMv
-      ? '<div class="ib ig" style="margin-bottom:0">🔴 <strong>LIVE '+upd+'</strong> — Mouvements de cotes détectés · 📉=baisse · 📈=hausse</div>'
-      : '<div class="ib ib2" style="margin-bottom:0">🟢 <strong>LIVE '+upd+'</strong> — Cotes stables</div>';
+    lb.innerHTML = '<div class="live-chip '+(hasMv?'on':'')+'">'
+      +'<span class="live-dot"></span>'
+      +(hasMv ? 'Cotes en mouvement' : 'Cotes stables')
+      +' <span class="live-time">· '+upd+'</span></div>';
   } else lb.innerHTML='';
 
   // Top 5 standard
   const std=selStd(h), rsk=selRsk(h);
   const t5=document.getElementById('pr-top5'); t5.innerHTML='';
   const medals=['🥇','🥈','🥉','4','5'];
+  const officialArr = S.race?.course?.arriveeDefinitive ? (S.race.course.ordreArrivee?.flat()||[]) : [];
+
   std.forEach((horse,i)=>{
     const num=horse._num||horse.numPmu||horse.num||i+1;
     const row=document.createElement('div');
@@ -706,6 +745,8 @@ function renderPronos(){
     const ds=driftSig(horse); if(ds) sigs.push(ds);
     if((horse._consensus||0)>=80) sigs.push('<span class="sig sg">📰'+horse._consensus+'%</span>');
     else if((horse._consensus||0)>=50) sigs.push('<span class="sig sb2">📰'+horse._consensus+'%</span>');
+    const found = officialArr.length && officialArr.includes(num);
+    if(found) sigs.push('<span class="found-badge">✓ trouvé</span>');
     const ic=S.initOdds[num], lc=horse._liveCote;
     const changed=lc&&ic&&Math.abs(lc-ic)>=0.2;
     row.innerHTML=
@@ -726,18 +767,19 @@ function renderPronos(){
     t5.appendChild(row);
   });
 
-  // Classement complet (compact)
+  // Classement complet (compact) — marque les chevaux trouvés si l'arrivée est connue
   const all=document.getElementById('pr-all'); all.innerHTML='';
   h.forEach((horse,i)=>{
     const num=horse._num||horse.numPmu||horse.num||'?';
     const row=document.createElement('div');
     row.className='hrow'; row.onclick=()=>openOv(horse);
     const di=horse._driftPct||0, ds2=di>=10?'📉':di<=-10?'📈':'';
+    const found = officialArr.length && officialArr.includes(num);
     row.innerHTML=
       '<div style="font-size:11px;font-weight:700;color:var(--txt3);width:18px;text-align:center">'+(i+1)+'</div>'
       +'<div class="dos '+dc(i,num)+'" style="width:34px;height:34px;font-size:13px">'+num+'</div>'
       +'<div style="flex:1;min-width:0;margin-left:4px">'
-        +'<div style="font-size:12px;font-weight:700;color:var(--txt)">'+(horse.nom||horse.name||'N/A')+' <span style="font-size:10px;color:var(--txt3)">avg.'+horse._mus.avg3+'</span> '+ds2+'</div>'
+        +'<div style="font-size:12px;font-weight:700;color:var(--txt)">'+(horse.nom||horse.name||'N/A')+' <span style="font-size:10px;color:var(--txt3)">avg.'+horse._mus.avg3+'</span> '+ds2+(found?' <span class="found-badge">✓ trouvé</span>':'')+'</div>'
         +'<div style="height:5px;background:var(--bg);border-radius:3px;margin-top:4px;overflow:hidden"><div class="pfill '+pf(horse._prob)+'" style="width:'+horse._prob+'%;height:100%"></div></div>'
       +'</div>'
       +'<div style="text-align:right;flex-shrink:0;min-width:80px">'
@@ -765,7 +807,7 @@ function renderPronos(){
     ['🔀','5 chevaux risqué — désordre',rskS.join(' − '),'var(--red)','#FFF0F0'],
   ];
   document.getElementById('pr-combos').innerHTML=
-    '<div class="ib io" style="margin-bottom:10px">⚠️ <strong>À lire avec prudence</strong> — sur validation hors-échantillon (données jamais vues), aucune méthode de sélection ne dépasse de façon fiable 45-55% de réussite. Les chiffres affichés sont un classement relatif, pas une probabilité garantie. Ajouter des chevaux (6, 7) augmente mécaniquement les chances de couvrir l\'arrivée, mais augmente aussi le coût du pari.</div>'
+    '<div class="combo-note">Ajouter des chevaux augmente la couverture de l\'arrivée, pas la précision de la prédiction — le coût du pari augmente en proportion.</div>'
     + rows2.map(([ic,lb,v,col,bg])=>
       '<div style="display:flex;align-items:center;gap:10px;padding:9px;background:'+bg+';border-radius:var(--r2);margin-bottom:5px">'
       +'<span style="font-size:15px;flex-shrink:0">'+ic+'</span>'
